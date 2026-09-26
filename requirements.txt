@@ -3,6 +3,6 @@ pandas
 numpy
 requests
 pytz
-tensorflow==2.15.0
+tensorflow
 scikit-learn
 vaderSentiment
