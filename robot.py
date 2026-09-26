@@ -1,10 +1,14 @@
 """
-TRADE PRO V7.0 - KO ONLY + SMART LEARNING (EarlyStopping) + FIXED HORIZONS
-+ 2 İLLİK BAZA + LIMIT SAVER NEWS (bütün tickerlər üçün)
+TRADE PRO V8.0 - KO ONLY + MACRO + SMART
+A) yfinance macro: ^VIX SPY XLP ^TNX UUP (0 limit, 6h cache)
+B) News: Finnhub /company-news -> VADER (-100 +100) 6h cache
+C) Finnhub extras: earnings calendar + insider sentiment 24h cache
+D) Yahoo Earnings via yfinance
 """
 import os, json, pickle, warnings, traceback
 from datetime import datetime, timedelta
 from news_sentiment import get_news_sentiment
+from macro_data import fetch_macro_yfinance, fetch_finnhub_extras, fetch_yahoo_earnings
 import pytz
 import yfinance as yf
 import pandas as pd
@@ -19,7 +23,6 @@ try:
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import LSTM, Dense, Dropout
     from tensorflow.keras.optimizers import Adam
-    from tensorflow.keras.utils import to_categorical
     from tensorflow.keras import backend as K
     from tensorflow.keras.callbacks import EarlyStopping
     from sklearn.preprocessing import MinMaxScaler
@@ -29,12 +32,11 @@ except Exception as e:
     TF_AVAILABLE = False
     print(f"⚠️ TF yoxdur: {e}")
 
-# YALNIZ KO
 TICKERS = ["KO"]
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 
-print("🧠 KO üçün ağıllı öyrənmə aktiv - EarlyStopping ilə")
+print("🧠 KO V8 - MACRO + SENTIMENT + EARNINGS")
 
 def get_times():
     baku = pytz.timezone("Asia/Baku")
@@ -126,8 +128,8 @@ def build_model(input_shape):
     model.compile(optimizer=Adam(0.001), loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
-def prepare_xy(df, horizon_key):
-    print(f"[2] prepare {horizon_key} df={len(df)}")
+def prepare_xy(df, horizon_key, macro, extras, news_sent):
+    print(f"[2] prepare {horizon_key} df={len(df)} macro={macro.keys() if macro else None}")
     try:
         df = df.copy()
         close = df['Close']
@@ -150,10 +152,30 @@ def prepare_xy(df, horizon_key):
         rs = gain / loss.replace(0, 0.001)
         df['RSI'] = 100 - (100 / (1 + rs))
 
+        # === NEW MACRO FEATURES ===
+        # yfinance macro - static son dəyər hər bar üçün
+        vix = macro.get("^VIX", {}).get("close", 20) if macro else 20
+        spy_ret = macro.get("SPY", {}).get("ret", 0) if macro else 0
+        xlp_ret = macro.get("XLP", {}).get("ret", 0) if macro else 0
+        tnx = macro.get("^TNX", {}).get("close", 4.0) if macro else 4.0
+        uup_ret = macro.get("UUP", {}).get("ret", 0) if macro else 0
+
+        df['VIX'] = vix
+        df['SPY_RET'] = spy_ret
+        df['XLP_RET'] = xlp_ret
+        df['TNX'] = tnx
+        df['UUP_RET'] = uup_ret
+
+        # News sentiment -100 +100 -> normalize üçün saxlayırıq, scaler edəcək
+        df['NEWS_SENT'] = news_sent if news_sent is not None else 0
+
+        # Finnhub extras
+        df['EARN_DAYS'] = extras.get("earnings_days", 30) if extras else 30
+        df['INSIDER'] = extras.get("insider_score", 0) if extras else 0
+
         shift_n = 1
         if horizon_key == "3g": shift_n = 3
         elif horizon_key == "5g": shift_n = 5
-        # 1s üçün shift 1 saatdır, amma data 1h interval olduğuna görə 1 bar = 1 saat
 
         df['FUTURE'] = df['Close'].shift(-shift_n)
         df['CHANGE'] = (df['FUTURE'] - df['Close']) / df['Close'] * 100
@@ -170,7 +192,7 @@ def prepare_xy(df, horizon_key):
             print(f" -> az data {len(df)}")
             return None, None, None, None
 
-        features = ['MA20', 'MA50', 'MA200', 'RET', 'RSI', 'VOL_CH']
+        features = ['MA20', 'MA50', 'MA200', 'RET', 'RSI', 'VOL_CH', 'VIX', 'SPY_RET', 'XLP_RET', 'TNX', 'UUP_RET', 'NEWS_SENT', 'EARN_DAYS', 'INSIDER']
         df[features] = df[features].bfill().fillna(0)
 
         scaler = MinMaxScaler()
@@ -181,53 +203,51 @@ def prepare_xy(df, horizon_key):
             return None, None, None, None
 
         X, y = [], []
-        for i in range(len(scaled) - seq_len):
-            X.append(scaled[i:i+seq_len])
-            y.append(df['LABEL'].iloc[i+seq_len])
+        for i in range(seq_len, len(scaled)):
+            X.append(scaled[i-seq_len:i])
+            y.append(df['LABEL'].iloc[i])
         
+        from tensorflow.keras.utils import to_categorical
         X = np.array(X)
         y = to_categorical(y, num_classes=3)
 
+        last_price = float(df['Close'].iloc[-1])
+        last_open = float(df['Open'].iloc[-1]) if 'Open' in df else last_price
         meta = {
-            'price': float(df['Close'].iloc[-1]),
-            'open': float(df['Open'].iloc[-1]),
-            'ma20': float(df['MA20'].iloc[-1]),
-            'ma50': float(df['MA50'].iloc[-1]),
-            'ma200': float(df['MA200'].iloc[-1]),
-            'rsi': float(df['RSI'].iloc[-1]),
-            'vol_change': float(df['VOL_CH'].iloc[-1])
+            "price": last_price, "open": last_open,
+            "ma20": float(df['MA20'].iloc[-1]), "ma50": float(df['MA50'].iloc[-1]),
+            "ma200": float(df['MA200'].iloc[-1]), "rsi": float(df['RSI'].iloc[-1]),
+            "vol_change": float(df['VOL_CH'].iloc[-1]),
+            "vix": float(vix), "spy_ret": float(spy_ret), "xlp_ret": float(xlp_ret),
+            "tnx": float(tnx), "news_sent": int(news_sent if news_sent else 0),
+            "earn_days": int(extras.get("earnings_days",30) if extras else 30),
+            "insider": int(extras.get("insider_score",0) if extras else 0)
         }
         return X, y, scaler, meta
+
     except Exception as e:
         print(f"prepare error {e}")
         traceback.print_exc()
         return None, None, None, None
 
-def train_for_ticker(ticker):
-    # DÜZƏLDİLDİ - BÜTÜN HORIZONLAR
-    horizons = {
-        "1s": {"interval": "1h", "period": "3mo", "label": "1 SAAT"},
-        "1g": {"interval": "1d", "period": "2y", "label": "1 GÜN"},
-        "3g": {"interval": "1d", "period": "2y", "label": "3 GÜN"},
-        "5g": {"interval": "1d", "period": "2y", "label": "5 GÜN"}
+def train_for_ticker(ticker, macro, extras, news_sent):
+    configs = {
+        "1s": {"period": "2y", "interval": "1h"},
+        "1g": {"period": "2y", "interval": "1d"},
+        "3g": {"period": "2y", "interval": "1d"},
+        "5g": {"period": "2y", "interval": "1d"},
     }
-
     results = {}
-    print(f"\n========== {ticker} ==========")
-    for hk, cfg in horizons.items():
+    for hk, cfg in configs.items():
         try:
-            print(f"\n--- {ticker} {hk} START ---")
             if hk == "1s" and not is_us_market_open():
-                print(f"skip 1s - bazar bağlı, amma KO üçün model yenilənəcək")
-                # 1s üçün bazar bağlıdırsa belə fetch etmirik, amma davam edirik
-                # istəsən tam skip edə bilərsən
-                # continue
+                print(f"skip 1s - bazar bağlı")
 
             df = fetch_data(ticker, cfg["period"], cfg["interval"])
             if df is None:
                 results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": 0.0, "open": 0.0, "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}}
                 continue
-            X, y, scaler, meta = prepare_xy(df, hk)
+            X, y, scaler, meta = prepare_xy(df, hk, macro, extras, news_sent)
             if X is None:
                 results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": float(df['Close'].iloc[-1]), "open": float(df['Open'].iloc[-1]), "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}}
                 continue
@@ -241,17 +261,14 @@ def train_for_ticker(ticker):
                 try:
                     from tensorflow.keras.models import load_model
                     model = load_model(brain_path)
-                    print(f"🧠 Köhnə beyin yükləndi: {brain_path} - üstünə öyrənəcək")
+                    print(f"🧠 Köhnə beyin yükləndi: {brain_path}")
                 except:
                     model = build_model(input_shape)
-                    print(f"🆕 Təzə model (köhnə xarab)")
             else:
                 model = build_model(input_shape)
-                print(f"🆕 İlk dəfə model quruldu")
 
-            print(f"[4] train {ticker} {hk} - AĞILLI ÖYRƏNMƏ...")
+            print(f"[4] train {ticker} {hk} V8 - {X.shape} features {input_shape[1]}...")
             if TF_AVAILABLE:
-                # AĞILLI ÖYRƏNMƏ - EarlyStopping
                 early_stop = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True, verbose=1)
                 model.fit(X, y, epochs=30, batch_size=16, verbose=0, callbacks=[early_stop])
                 model.save(brain_path)
@@ -281,16 +298,37 @@ def train_for_ticker(ticker):
 
 def main():
     baku, ny = get_times()
-    print(f"V7.0 KO ONLY + SMART - {baku} | NY {ny.strftime('%A %H:%M')} | Market: {is_us_market_open()}")
+    print(f"V8.0 KO MACRO - {baku} | NY {ny.strftime('%A %H:%M')} | Market: {is_us_market_open()}")
 
     if ny.weekday() >= 5:
         print("🔴 HƏFTƏSONU - GitHub boş işləməsin deyə çıxıram")
         return
 
+    # A) Macro
+    macro = fetch_macro_yfinance()
+    # C) Extras
+    extras = fetch_finnhub_extras("KO")
+    # D) Yahoo earnings fallback
+    yahoo_days = fetch_yahoo_earnings("KO")
+    if extras.get("earnings_days", 30) == 30 and yahoo_days != 30:
+        extras["earnings_days"] = yahoo_days
+
+    # B) News
+    news_data = {}
+    for ticker in TICKERS:
+        try:
+            sent, head, is_new = get_news_sentiment(ticker)
+            news_data[ticker] = (sent, head, is_new)
+            print(f"📰 News {ticker}: {sent} | {head[:100]} | is_new={is_new}")
+        except Exception as e:
+            print(f"📰 News error {ticker}: {e}")
+            news_data[ticker] = (0, "yeni xəbər yoxdur", False)
+
     all_results = {}
     for ticker in TICKERS:
         try:
-            res = train_for_ticker(ticker)
+            ns = news_data.get(ticker, (0,"",False))[0]
+            res = train_for_ticker(ticker, macro, extras, ns)
             all_results[ticker] = res
         except Exception as e:
             print(f"❌ {ticker} fail: {e}")
@@ -316,44 +354,30 @@ def main():
                 "MA200": meta.get("ma200", 0),
                 "RSI": meta.get("rsi", 0),
                 "VolumeChange": meta.get("vol_change", 0),
-                "VolumeStatus": "Yüksək" if meta.get("vol_change",0) > 10 else "Orta" if meta.get("vol_change",0) > -10 else "Zəif"
+                "VIX": meta.get("vix", 0),
+                "SPY_RET": meta.get("spy_ret", 0),
+                "XLP_RET": meta.get("xlp_ret", 0),
+                "TNX": meta.get("tnx", 0),
+                "NEWS_SENT": meta.get("news_sent", 0),
+                "EARN_DAYS": meta.get("earn_days", 0),
+                "INSIDER": meta.get("insider", 0),
+                "news_headline": news_data.get(ticker, (0,"",False))[1] if ticker in news_data else ""
             })
-
-    # DÜZƏLDİLDİ - NEWS BÜTÜN TICKERLƏR ÜÇÜN (İNDİ TƏK KO)
-    news_data = {}
-    for ticker in TICKERS:
-        try:
-            sent, head, is_new = get_news_sentiment(ticker)
-            news_data[ticker] = (sent, head, is_new)
-            print(f"📰 News {ticker}: {sent} | {head[:100]} | is_new={is_new}")
-        except Exception as e:
-            print(f"📰 News error {ticker}: {e}")
-            news_data[ticker] = (0, "yeni xəbər yoxdur", False)
-
-    for r in rows:
-        t = r.get("ticker")
-        if t in news_data:
-            r["news_sentiment"] = news_data[t][0]
-            r["news_headline"] = news_data[t][1]
-            r["is_new"] = news_data[t][2]
-        else:
-            r["news_sentiment"] = 0
-            r["news_headline"] = "yeni xəbər yoxdur"
 
     if rows:
         df_pred = pd.DataFrame(rows)
         df_pred.to_csv(f"{DATA_DIR}/predictions.csv", index=False)
         with open(f"{DATA_DIR}/predictions.json", "w") as f:
-            json.dump(all_results, f, indent=2, default=str)
-        print(f"\n📊 predictions.csv {len(rows)} sətir")
+            json.dump({"results": all_results, "macro": macro, "extras": extras, "news": {k: {"sent": v[0], "headline": v[1]} for k,v in news_data.items()}}, f, indent=2, default=str)
+        print(f"\n📊 predictions.csv {len(rows)} sətir V8")
 
     try:
-        msg = f"<b>TRADE PRO V7.0 KO SMART</b> {baku.strftime('%d.%m %H:%M')}\n"
-        msg += f"{'🟢 AÇIQ' if is_us_market_open() else '🔴 BAĞLI'} | {len(rows)} proqnoz\n"
+        msg = f"<b>TRADE PRO V8.0 KO MACRO</b> {baku.strftime('%d.%m %H:%M')}\n"
+        msg += f"{'🟢 AÇIQ' if is_us_market_open() else '🔴 BAĞLI'} | VIX {macro.get('^VIX',{}).get('close',0):.1f} | SPY {macro.get('SPY',{}).get('ret',0):+.1f}%\n"
         for ticker in TICKERS:
             if ticker in news_data and news_data[ticker][2]:
                 msg += f"🆕 {ticker}: {news_data[ticker][1][:60]}\n"
-        msg += "\n"
+        msg += f"📅 Earn {extras.get('earnings_days',0)}g | 👔 {extras.get('insider_score',0)}\n\n"
         if "KO" in all_results:
             for hk in ["1s","1g","3g","5g"]:
                 if hk in all_results["KO"]:
