@@ -1,0 +1,7 @@
+data/*
+!data/.gitkeep
+*.keras
+*.pkl
+__pycache__/
+.env
+venv/
