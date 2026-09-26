@@ -1,29 +1,52 @@
-name: KO Trader-v7
+name: KO Trader V8 MACRO
+
 on:
   schedule:
     - cron: '0 * * * *'
   workflow_dispatch:
+
 jobs:
   trade:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Cache data
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install deps
+        run: |
+          pip install -r requirements.txt
+
+      - name: Restore data cache
         uses: actions/cache@v4
         with:
           path: data
-          key: ko-trader-v7-${{ github.run_id }}
+          key: ko-trader-v8-${{ runner.os }}-${{ hashFiles('**/robot_v8.py') }}
           restore-keys: |
+            ko-trader-v8-${{ runner.os }}-
             ko-trader-v7-
-      - name: Python qur
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - name: Kitabxanalar
-        run: pip install -r requirements.txt
-      - name: İşlə
+
+      - name: Run KO V8
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-        run: python robot.py
+        run: |
+          python robot_v8.py
+
+      - name: Upload predictions artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: predictions-v8
+          path: |
+            data/predictions.csv
+            data/predictions.json
+            data/macro_cache.json
+            data/news_cache.json
+            data/extras_cache.json
+          retention-days: 7
