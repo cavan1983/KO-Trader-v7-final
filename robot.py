@@ -230,7 +230,7 @@ def prepare_xy(df, horizon_key, macro, extras, news_sent):
         traceback.print_exc()
         return None, None, None, None
 
-def train_for_ticker(ticker, macro, extras, news_sent):
+def train_for_ticker(ticker, macro, extras, news_sent, fred=None):
     configs = {
         "1s": {"period": "2y", "interval": "1h"},
         "1g": {"period": "2y", "interval": "1d"},
@@ -247,7 +247,7 @@ def train_for_ticker(ticker, macro, extras, news_sent):
             if df is None:
                 results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": 0.0, "open": 0.0, "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}}
                 continue
-            X, y, scaler, meta = prepare_xy(df, hk, macro, extras, news_sent)
+            X, y, scaler, meta = prepare_xy(df, hk, macro, extras, news_sent, fred)
             if X is None:
                 results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": float(df['Close'].iloc[-1]), "open": float(df['Open'].iloc[-1]), "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}}
                 continue
@@ -298,19 +298,21 @@ def train_for_ticker(ticker, macro, extras, news_sent):
 
 def main():
     baku, ny = get_times()
-    print(f"V8.0 KO MACRO - {baku} | NY {ny.strftime('%A %H:%M')} | Market: {is_us_market_open()}")
+    print(f"V8.0 KO MACRO + FRED - {baku} | NY {ny.strftime('%A %H:%M')} | Market: {is_us_market_open()}")
 
     if ny.weekday() >= 5:
         print("🔴 HƏFTƏSONU - GitHub boş işləməsin deyə çıxıram")
         return
 
-    # A) Macro
+    # A) Macro yfinance
     macro = fetch_macro_yfinance()
+    # E) FRED - SƏNİN DEDİYİN YER DOĞRUDUR
+    fred = fetch_fred_data() # <-- burada, macro-dan sonra
     # C) Extras
     extras = fetch_finnhub_extras("KO")
     # D) Yahoo earnings fallback
     yahoo_days = fetch_yahoo_earnings("KO")
-    if extras.get("earnings_days", 30) == 30 and yahoo_days != 30:
+    if extras.get("earnings_days", 30) == 30 and yahoo_days!= 30:
         extras["earnings_days"] = yahoo_days
 
     # B) News
@@ -328,65 +330,8 @@ def main():
     for ticker in TICKERS:
         try:
             ns = news_data.get(ticker, (0,"",False))[0]
-            res = train_for_ticker(ticker, macro, extras, ns)
+            res = train_for_ticker(ticker, macro, extras, ns, fred) # fred-i də ötür
             all_results[ticker] = res
         except Exception as e:
             print(f"❌ {ticker} fail: {e}")
             all_results[ticker] = {}
-
-    rows = []
-    for ticker, horizons in all_results.items():
-        for hk, data in horizons.items():
-            meta = data.get("meta", {})
-            rows.append({
-                "timestamp": baku.isoformat(),
-                "ticker": ticker,
-                "horizon": hk,
-                "signal": data.get("signal", "GÖZLƏ"),
-                "confidence": data.get("conf", 50.0),
-                "price": data.get("price", 0.0),
-                "open": data.get("open", 0.0),
-                "AL": data.get("probs", {}).get("AL", 33.0),
-                "GÖZLƏ": data.get("probs", {}).get("GÖZLƏ", 50.0),
-                "SAT": data.get("probs", {}).get("SAT", 17.0),
-                "MA20": meta.get("ma20", 0),
-                "MA50": meta.get("ma50", 0),
-                "MA200": meta.get("ma200", 0),
-                "RSI": meta.get("rsi", 0),
-                "VolumeChange": meta.get("vol_change", 0),
-                "VIX": meta.get("vix", 0),
-                "SPY_RET": meta.get("spy_ret", 0),
-                "XLP_RET": meta.get("xlp_ret", 0),
-                "TNX": meta.get("tnx", 0),
-                "NEWS_SENT": meta.get("news_sent", 0),
-                "EARN_DAYS": meta.get("earn_days", 0),
-                "INSIDER": meta.get("insider", 0),
-                "news_headline": news_data.get(ticker, (0,"",False))[1] if ticker in news_data else ""
-            })
-
-    if rows:
-        df_pred = pd.DataFrame(rows)
-        df_pred.to_csv(f"{DATA_DIR}/predictions.csv", index=False)
-        with open(f"{DATA_DIR}/predictions.json", "w") as f:
-            json.dump({"results": all_results, "macro": macro, "extras": extras, "news": {k: {"sent": v[0], "headline": v[1]} for k,v in news_data.items()}}, f, indent=2, default=str)
-        print(f"\n📊 predictions.csv {len(rows)} sətir V8")
-
-    try:
-        msg = f"<b>TRADE PRO V8.0 KO MACRO</b> {baku.strftime('%d.%m %H:%M')}\n"
-        msg += f"{'🟢 AÇIQ' if is_us_market_open() else '🔴 BAĞLI'} | VIX {macro.get('^VIX',{}).get('close',0):.1f} | SPY {macro.get('SPY',{}).get('ret',0):+.1f}%\n"
-        for ticker in TICKERS:
-            if ticker in news_data and news_data[ticker][2]:
-                msg += f"🆕 {ticker}: {news_data[ticker][1][:60]}\n"
-        msg += f"📅 Earn {extras.get('earnings_days',0)}g | 👔 {extras.get('insider_score',0)}\n\n"
-        if "KO" in all_results:
-            for hk in ["1s","1g","3g","5g"]:
-                if hk in all_results["KO"]:
-                    d = all_results["KO"][hk]
-                    emoji = "🟢" if d['signal']=="AL" else "🔴" if d['signal']=="SAT" else "🟡"
-                    msg += f"{emoji} KO {hk}: <b>{d['signal']}</b> {d['conf']:.0f}% @ ${d['price']:.2f}\n"
-        send_telegram(msg)
-    except Exception as e:
-        print(f"Telegram: {e}")
-
-if __name__ == "__main__":
-    main()
