@@ -1,4 +1,4 @@
-name: KO Trader V8 MACRO
+name: KO Trader V8 MACRO + FRED
 
 on:
   schedule:
@@ -8,8 +8,13 @@ on:
 jobs:
   trade:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -32,15 +37,17 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python robot.py
 
       - name: Commit predictions to repo
         run: |
           git config user.name "KO-Bot"
           git config user.email "bot@ko-trader.com"
-          git add data/predictions.json data/predictions.csv data/macro_cache.json data/news_cache.json data/extras_cache.json || true
-          git diff --staged --quiet || git commit -m "V8 update $(date -u +'%Y-%m-%d %H:%M UTC') VIX:${{ env.VIX }} "
-          git push || echo "push fail - no changes"
+          mkdir -p data
+          git add data/predictions.json data/predictions.csv data/macro_cache.json data/fred_cache.json data/news_cache.json data/extras_cache.json || true
+          git status
+          git diff --staged --quiet && echo "No changes to commit" || (git commit -m "V8+FRED update $(date -u +'%Y-%m-%d %H:%M UTC')" && git push)
 
       - name: Upload artifact
         if: always()
