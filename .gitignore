@@ -1,5 +1,6 @@
-data/*
 !data/.gitkeep
+!data/*.json
+!data/*.csv
 *.keras
 *.pkl
 __pycache__/
