@@ -152,59 +152,54 @@ def fetch_yahoo_earnings(ticker="KO"):
     return 30
 
 # ===== YENİ ƏLAVƏ - FRED (SƏNİN API-ın) =====
-def fetch_fred_data():
-    """E) FRED - 7 gün cache, tam pulsuz, aylıq data"""
-    cache = _load_json(FRED_CACHE)
-    now = datetime.utcnow()
-    if cache and "time" in cache:
+def fetch_data(ticker, period, interval):
+    db_path = f"{DATA_DIR}/db_{ticker}_{interval}_{period}.csv"
+    df_db = None
+    if os.path.exists(db_path):
         try:
-            ct = datetime.fromisoformat(cache["time"])
-            if (now - ct).days < 7:
-                print(f"🏦 FRED cache təzədir {(now-ct).days} gün - API işləmir")
-                return cache
+            df_db = pd.read_csv(db_path, parse_dates=True, index_col=0)
+            df_db.index = pd.to_datetime(df_db.index, errors='coerce')
+            df_db = df_db.dropna().sort_index()
+            if df_db.empty:
+                df_db = None
         except:
-            pass
+            df_db = None
 
-    key = os.getenv("FRED_API_KEY")
-    if not key:
-        print("⚠️ FRED_API_KEY yoxdur - Settings->Secrets-ə əlavə et")
-        return cache if cache else {"time": now.isoformat()}
+    fetch_period = "5d" if df_db is not None and interval == "1d" else ("7d" if df_db is not None else period)
+    print(f"[1] fetch {ticker} {interval} {period} -> {fetch_period}")
 
-    series_map = {
-        "CPI": "CPIAUCSL",
-        "UNRATE": "UNRATE",
-        "FEDFUNDS": "DFF",
-        "T10Y2Y": "T10Y2Y"
-    }
-    out = {"time": now.isoformat()}
-    for name, sid in series_map.items():
+    df_new = None
+    for attempt in range(2):
         try:
-            url = f"https://api.stlouisfed.org/fred/series/observations?series_id={sid}&api_key={key}&file_type=json&sort_order=desc&limit=2"
-            r = requests.get(url, timeout=15)
-            if r.status_code == 200:
-                obs = r.json().get("observations", [])
-                if obs and obs[0]['value']!= '.':
-                    curr = float(obs[0]['value'])
-                    prev = float(obs[1]['value']) if len(obs)>1 and obs[1]['value']!= '.' else curr
-                    out[name] = {"value": curr, "change": curr-prev}
-                    print(f"🏦 FRED {name}={curr}")
-            else:
-                print(f"🏦 FRED {name} API {r.status_code}")
+            df = yf.download(ticker, period=fetch_period, interval=interval, progress=False, auto_adjust=True, threads=False)
+            if df is None or df.empty:
+                continue
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            df.index = pd.to_datetime(df.index, errors='coerce')
+            df = df.dropna().sort_index()
+            if len(df) > 5:
+                df_new = df
+                break
         except Exception as e:
-            print(f"🏦 FRED {name} error {e}")
+            print(f" -> FAIL {e}")
 
-    _save_json(FRED_CACHE, out)
-    # flat keys for robot.py
-    flat = {
-        "time": out.get("time"),
-        "fed_funds": out.get("FEDFUNDS", {}).get("value", 4.5),
-        "cpi": out.get("CPI", {}).get("value", 334),
-        "cpi_yoy": out.get("CPI", {}).get("change", 1.3),
-        "unrate": out.get("UNRATE", {}).get("value", 4.1),
-        "t10y2y": out.get("T10Y2Y", {}).get("value", 0.36),
-        "CPI": out.get("CPI"),
-        "UNRATE": out.get("UNRATE"),
-        "FEDFUNDS": out.get("FEDFUNDS"),
-        "T10Y2Y": out.get("T10Y2Y"),
-    }
-    return flat
+    if df_new is None:
+        if df_db is not None:
+            return df_db
+        return None
+
+    if df_db is not None:
+        try:
+            combined = pd.concat([df_db, df_new])
+            combined.index = pd.to_datetime(combined.index, errors='coerce')
+            combined = combined[~combined.index.duplicated(keep='last')].sort_index()
+            combined.to_csv(db_path)
+            return combined
+        except Exception as e:
+            print(f" -> concat fail {e}, new only used")
+            df_new.to_csv(db_path)
+            return df_new
+    else:
+        df_new.to_csv(db_path)
+        return df_new
