@@ -193,7 +193,7 @@ def fetch_fred_data():
         except Exception as e:
             print(f"🏦 FRED {name} error {e}")
 
-   _save_json(FRED_CACHE, out)
+    _save_json(FRED_CACHE, out)
     # flat keys for robot.py
     flat = {
         "time": out.get("time"),
