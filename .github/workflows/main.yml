@@ -42,12 +42,14 @@ jobs:
 
       - name: Commit predictions to repo
         run: |
-          git config user.name "KO-Bot"
-          git config user.email "bot@ko-trader.com"
           mkdir -p data
-          git add data/predictions.json data/predictions.csv data/macro_cache.json data/fred_cache.json data/news_cache.json data/extras_cache.json || true
-          git status
-          git diff --staged --quiet && echo "No changes to commit" || (git commit -m "V8+FRED update $(date -u +'%Y-%m-%d %H:%M UTC')" && git push)
+          ls -lh data/ || echo "data bosdur"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add -f data/*.json data/*.csv || echo "add fail"
+          git diff --staged --name-only
+          git commit -m "V8+FRED auto-update $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes to commit"
+          git push || echo "Push failed, trying pull --rebase"; git pull --rebase && git push
 
       - name: Upload artifact
         if: always()
