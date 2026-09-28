@@ -66,29 +66,51 @@ def fetch_data(ticker, period, interval):
     if os.path.exists(db_path):
         try:
             df_db = pd.read_csv(db_path, parse_dates=True, index_col=0)
-            if df_db.empty: df_db = None
-        except: df_db = None
+            df_db.index = pd.to_datetime(df_db.index, errors='coerce')
+            df_db = df_db[~df_db.index.isna()].sort_index()
+            if df_db.empty:
+                df_db = None
+        except Exception as e:
+            print(f"db read fail {e}, silirem")
+            try: os.remove(db_path)
+            except: pass
+            df_db = None
+
     fetch_period = "5d" if df_db is not None and interval == "1d" else ("7d" if df_db is not None else period)
     print(f"[1] fetch {ticker} {interval} {period} -> {fetch_period}")
+
     df_new = None
-    for attempt in range(2):
+    for _ in range(2):
         try:
             df = yf.download(ticker, period=fetch_period, interval=interval, progress=False, auto_adjust=True, threads=False)
             if df is None or df.empty: continue
-            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-            df = df.dropna()
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            df.index = pd.to_datetime(df.index, errors='coerce')
+            df = df.dropna().sort_index()
             if len(df) > 5:
                 df_new = df
                 break
-        except Exception as e: print(f" -> FAIL {e}")
+        except Exception as e:
+            print(f" -> FAIL {e}")
+
     if df_new is None:
-        if df_db is not None: return df_db
-        return None
+        return df_db
+
     if df_db is not None:
-        combined = pd.concat([df_db, df_new])
-        combined = combined[~combined.index.duplicated(keep='last')].sort_index()
-        combined.to_csv(db_path)
-        return combined
+        try:
+            combined = pd.concat([df_db, df_new])
+            combined.index = pd.to_datetime(combined.index, errors='coerce')
+            combined = combined[~combined.index.isna()]
+            combined = combined[~combined.index.duplicated(keep='last')].sort_index()
+            combined.to_csv(db_path)
+            return combined
+        except Exception as e:
+            print(f" -> concat fail {e}, db yeniden yaradilir")
+            try: os.remove(db_path)
+            except: pass
+            df_new.to_csv(db_path)
+            return df_new
     else:
         df_new.to_csv(db_path)
         return df_new
