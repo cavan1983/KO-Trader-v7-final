@@ -194,4 +194,18 @@ def fetch_fred_data():
             print(f"🏦 FRED {name} error {e}")
 
     _save_json(FRED_CACHE, out)
-    return out
+        _save_json(FRED_CACHE, out)
+    # flat keys for robot.py
+    flat = {
+        "time": out.get("time"),
+        "fed_funds": out.get("FEDFUNDS", {}).get("value", 4.5),
+        "cpi": out.get("CPI", {}).get("value", 334),
+        "cpi_yoy": out.get("CPI", {}).get("change", 1.3),
+        "unrate": out.get("UNRATE", {}).get("value", 4.1),
+        "t10y2y": out.get("T10Y2Y", {}).get("value", 0.36),
+        "CPI": out.get("CPI"),
+        "UNRATE": out.get("UNRATE"),
+        "FEDFUNDS": out.get("FEDFUNDS"),
+        "T10Y2Y": out.get("T10Y2Y"),
+    }
+    return flat
