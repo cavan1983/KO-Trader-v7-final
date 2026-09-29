@@ -308,7 +308,6 @@ def main():
         send_telegram(msg)
     except Exception as e: print(f"TG err {e}")
 def journal_yaz(ticker, results, price_val):
-def journal_yaz(ticker, res, price_now, macro=None, fred=None, extras=None, news_sent=None):
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
         jp = f"{DATA_DIR}/decision_journal.csv"
@@ -340,6 +339,7 @@ def journal_yaz(ticker, res, price_now, macro=None, fred=None, extras=None, news
                 macro.get("xlp","") if macro else "",
                 macro.get("tnx","") if macro else "",
                 macro.get("uup","") if macro else "",
+                macro.get("vix","") if macro else "",
                 fred.get("fed_funds","") if fred else "",
                 fred.get("cpi","") if fred else "",
                 fred.get("cpi_yoy","") if fred else "",
