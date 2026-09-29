@@ -2,7 +2,7 @@ name: KO Trader V8 MACRO + FRED
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '45 * * * *'
   workflow_dispatch:
 
 jobs:
