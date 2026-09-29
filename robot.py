@@ -300,7 +300,7 @@ def main():
             for k in ["1s","1g","3g","5g"]:
                 if t in all_results and k in all_results[t]:
                     r = all_results[t][k]
-    msg += f"{t} {k}: {r['signal']} {r['conf']:.0f}% @ ${r['price']:.2f}\n"
+        msg += f"{t} {k}: {r['signal']} {r['conf']:.0f}% @ ${r['price']:.2f}\n"
     if "KO" in all_results:
         pv = all_results["KO"].get("5g", {}).get("price", 0)
         journal_yaz("KO", all_results["KO"], pv)
