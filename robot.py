@@ -1,7 +1,7 @@
 """
 TRADE PRO V8.0 - KO ONLY + MACRO + FRED + SMART
 """
-import os, json, pickle, warnings, traceback
+import os, json, pickle, warnings, traceback ,csv
 from datetime import datetime
 from news_sentiment import get_news_sentiment
 from macro_data import fetch_macro_yfinance, fetch_finnhub_extras, fetch_yahoo_earnings, fetch_fred_data
@@ -10,9 +10,6 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import requests
-import os
-import csv
-import json
 
 warnings.filterwarnings("ignore")
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
