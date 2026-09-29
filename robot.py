@@ -36,9 +36,11 @@ JOURNAL_PATH = f"{DATA_DIR}/decision_journal.csv"
 print("🧠 KO V8 - MACRO + SENTIMENT + EARNINGS + FRED")
 
 def get_times():
-    baku = pytz.timezone("Asia/Baku")
-    ny = pytz.timezone("America/New_York")
-    return datetime.now(baku), datetime.now(ny)
+    BAKU_TZ = pytz.timezone("Asia/Baku")
+    BAKU = BAKU_TZ # köhnə kod BAKU deyə çağırdığı üçün
+    NY_TZ = pytz.timezone("America/New_York")
+    NY = NY_TZ
+    return datetime.now(BAKU_TZ), datetime.now(NY_TZ)
 
 def is_us_market_open():
     try:
