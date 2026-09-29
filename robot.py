@@ -31,6 +31,7 @@ except Exception as e:
 TICKERS = ["KO"]
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
+JOURNAL_PATH = f"{DATA_DIR}/decision_journal.csv"
 
 print("🧠 KO V8 - MACRO + SENTIMENT + EARNINGS + FRED")
 
