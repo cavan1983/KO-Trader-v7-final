@@ -269,7 +269,7 @@ def journal_yaz(ticker, results, price_val, macro=None, fred=None, extras=None, 
                     "s3g","c3g","p3g","rsi3g","ma203g",
                     "s5g","c5g","p5g","rsi5g","ma205g",
                     "news_sent","earnings_days","insider",
-                    "spy","xlp","tnx","uup",
+                    "spy","xlp","tnx","uup","vix",
                     "fed","cpi","cpi_yoy","unemp","t10y2y"])
             
             def get_r(h, key, meta_key=None):
