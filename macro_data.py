@@ -1,15 +1,15 @@
 """
-KO V8 - MACRO DATA FETCHER
-A) yfinance 0 limit: ^VIX, SPY, XLP, ^TNX, UUP
-C) Finnhub extras: earnings, insider sentiment (24h cache)
-D) Yahoo Earnings date
-E) FRED - CPI, UNRATE, FEDFUNDS (7 gün cache)
-Hamısı ağıllı cache ilə
+KO V8 - MACRO DATA FETCHER - MARKET AWARE FINAL
+A) yfinance ^VIX SPY XLP ^TNX UUP - 45 dəq açıqda / 6 saat bağlıda
+C) Finnhub extras - 2 saat açıqda / 24 saat bağlıda
+D) Yahoo Earnings
+E) FRED - 7 gün
 """
 import os, json, requests
 from datetime import datetime, timedelta
 import yfinance as yf
 import pandas as pd
+import pytz
 
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -33,15 +33,21 @@ def _save_json(path, data):
     except Exception as e:
         print(f"cache save error {path}: {e}")
 
+def is_ny_market_open():
+    now_ny = datetime.now(pytz.timezone("America/New_York"))
+    return now_ny.weekday() < 5 and 9 <= now_ny.hour < 16
+
 def fetch_macro_yfinance():
-    """A) 5 ticker 1 sorğu - 0 limit"""
     cache = _load_json(MACRO_CACHE)
     now = datetime.utcnow()
+    TTL = 0.75 if is_ny_market_open() else 6.0
+
     if cache and "time" in cache:
         try:
             ct = datetime.fromisoformat(cache["time"])
-            if (now - ct).total_seconds() / 3600 < 6:
-                print(f"📈 Macro cache təzədir { (now-ct).total_seconds()/3600:.1f}h - yfinance işləmir")
+            age_h = (now - ct).total_seconds() / 3600
+            if age_h < TTL:
+                print(f"📈 Macro cache təzədir {age_h:.1f}h (TTL {TTL}h) - yfinance işləmir")
                 return cache
         except:
             pass
@@ -71,21 +77,25 @@ def fetch_macro_yfinance():
         return cache if cache else {"time": now.isoformat()}
 
 def fetch_finnhub_extras(ticker="KO"):
-    """C) Finnhub earnings + insider - 24h cache"""
     cache = _load_json(EXTRAS_CACHE)
     now = datetime.utcnow()
+    TTL = 2.0 if is_ny_market_open() else 24.0
+
     if ticker in cache:
         try:
             ct = datetime.fromisoformat(cache[ticker].get("time", "2000-01-01"))
-            if (now - ct).total_seconds() / 3600 < 24:
-                print(f"🔍 Extras cache təzədir {(now-ct).total_seconds()/3600:.1f}h")
+            age_h = (now - ct).total_seconds() / 3600
+            if age_h < TTL:
+                print(f"🔍 Extras cache təzədir {age_h:.1f}h (TTL {TTL}h)")
                 return cache[ticker]
         except:
             pass
+
     key = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_KEY")
     if not key:
-        print("⚠️ FINNHUB key yoxdur - extras skip")
+        print("⚠ FINNHUB key yoxdur - extras skip")
         return cache.get(ticker, {"earnings_days": 30, "insider_score": 0, "time": now.isoformat()})
+
     out = {"time": now.isoformat(), "earnings_days": 30, "insider_score": 0, "next_earnings": "unknown"}
     try:
         from_d = now.strftime("%Y-%m-%d")
@@ -109,6 +119,7 @@ def fetch_finnhub_extras(ticker="KO"):
                         pass
     except Exception as e:
         print(f"📅 Earnings error {e}")
+
     try:
         url = f"https://finnhub.io/api/v1/stock/insider-sentiment?symbol={ticker}&from={(now - timedelta(days=90)).strftime('%Y-%m-%d')}&to={now.strftime('%Y-%m-%d')}&token={key}"
         r = requests.get(url, timeout=15)
@@ -122,21 +133,14 @@ def fetch_finnhub_extras(ticker="KO"):
                 print(f"👔 Insider {ticker} mspr={out['insider_score']}")
     except Exception as e:
         print(f"👔 Insider error {e}")
+
     cache[ticker] = out
     _save_json(EXTRAS_CACHE, cache)
     return out
 
 def fetch_yahoo_earnings(ticker="KO"):
-    """D) Yahoo earnings date - yfinance pulsuz"""
     try:
         tk = yf.Ticker(ticker)
-        cal = tk.calendar
-        if cal is not None and not cal.empty if hasattr(cal, 'empty') else cal:
-            if isinstance(cal, dict):
-                ed = cal.get("Earnings Date", [None])[0] if "Earnings Date" in cal else None
-                if ed:
-                    days = (ed - datetime.now()).days if hasattr(ed, 'date') else 30
-                    return max(0, days)
         try:
             edates = tk.earnings_dates
             if edates is not None and not edates.empty:
@@ -152,7 +156,6 @@ def fetch_yahoo_earnings(ticker="KO"):
     return 30
 
 def fetch_fred_data():
-    """E) FRED - 7 gün cache"""
     cache = _load_json(FRED_CACHE)
     now = datetime.utcnow()
     if cache and "time" in cache:
@@ -179,7 +182,7 @@ def fetch_fred_data():
                 obs = r.json().get("observations", [])
                 if obs and obs[0]['value']!= '.':
                     curr = float(obs[0]['value'])
-                    prev = float(obs[1]['value']) if len(obs)>1 and obs[1]['value']!='.' else curr
+                    prev = float(obs[1]['value']) if len(obs) > 1 and obs[1]['value']!= '.' else curr
                     out[name] = {"value": curr, "change": curr-prev}
         except Exception as e:
             print(f"FRED {name} err {e}")
@@ -191,10 +194,6 @@ def fetch_fred_data():
         "cpi_yoy": out.get("CPI", {}).get("change", 1.3),
         "unrate": out.get("UNRATE", {}).get("value", 4.1),
         "t10y2y": out.get("T10Y2Y", {}).get("value", 0.36),
-        "CPI": out.get("CPI"),
-        "UNRATE": out.get("UNRATE"),
-        "FEDFUNDS": out.get("FEDFUNDS"),
-        "T10Y2Y": out.get("T10Y2Y"),
     }
     _save_json(FRED_CACHE, flat)
     return flat
