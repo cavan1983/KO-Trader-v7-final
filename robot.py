@@ -233,8 +233,9 @@ def train_for_ticker(ticker, macro, extras, news_sent, fred=None):
             else: model = build_model(input_shape)
             print(f"[4] train {ticker} {hk} {X.shape}")
             if TF_AVAILABLE:
-                early_stop = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True, verbose=1)
-                model.fit(X, y, epochs=30, batch_size=16, verbose=0, callbacks=[early_stop])
+                early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1)
+                history = model.fit(X, y, epochs=30, batch_size=16, verbose=0, validation_split=0.2, callbacks=[early_stop])
+                print(f"[6] {ticker} {hk} train_loss={history.history['loss'][-1]:.4f} val_loss={history.history['val_loss'][-1]:.4f}")
                 model.save(brain_path)
                 with open(scaler_path, 'wb') as f: pickle.dump(scaler, f)
             last_seq = X[-1:]
