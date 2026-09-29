@@ -2,7 +2,7 @@ name: KO Trader V8 MACRO + FRED
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '45 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -25,12 +25,15 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
-      - name: Restore data cache
+      # DÜZƏLİŞ: data cache-ini sildik, yalnız modelləri cache edirik
+      - name: Restore models cache
         uses: actions/cache@v4
         with:
-          path: data
-          key: ko-trader-v8-${{ runner.os }}
-          restore-keys: ko-trader-v8-
+          path: |
+            brain_*.keras
+            scaler_*.pkl
+          key: ko-models-${{ hashFiles('requirements.txt') }}
+          restore-keys: ko-models-
 
       - name: Run KO V8
         env:
@@ -43,18 +46,10 @@ jobs:
       - name: Commit predictions to repo
         run: |
           mkdir -p data
-          ls -lh data/ || echo "data bosdur"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add -f data/*.json data/*.csv || echo "add fail"
+          git pull --rebase
+          git add -f data/predictions.json data/decision_journal.csv data/macro_cache.json data/fred_cache.json data/news_cache.json || true
           git diff --staged --name-only
-          git commit -m "V8+FRED auto-update $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes to commit"
-          git push || echo "Push failed, trying pull --rebase"; git pull --rebase && git push
-
-      - name: Upload artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: predictions-v8
-          path: data/
-          retention-days: 7
+          git commit -m "V8+FRED auto-update $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes"
+          git push
