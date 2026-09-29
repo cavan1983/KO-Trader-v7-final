@@ -329,19 +329,28 @@ def journal_oxu(ticker="KO", son_n=5):
 
 def main():
     baku, ny = get_times()
-    print(f"V8.0 KO MACRO+FRED - {baku} | NY {ny.strftime('%A %H:%M')} | Market: {is_us_market_open()}")
-    if ny.weekday() >= 5:
-        print("🔴 WEEKEND - exit")
+    is_open = is_us_market_open()
+    print(f"V8.0 KO MACRO+FRED - {baku} | NY {ny.strftime('%A %H:%M')} | Market: {is_open}")
+
+    # WEEKEND və ya GECƏ - bağlıdırsa çıx
+    if not is_open:
+        print(f"🔴 Market bağlıdır NY {ny.strftime('%A %H:%M')} - exit, run skip")
         os.makedirs(DATA_DIR, exist_ok=True)
+        # Frontend üçün dummy yazıb çıxırıq, journal-a yazmırıq
         dummy = {"KO": {"1s": {"signal":"GÖZLƏ","conf":50},"1g": {"signal":"GÖZLƏ","conf":50},"3g": {"signal":"GÖZLƏ","conf":50},"5g": {"signal":"GÖZLƏ","conf":50}}, "updated": str(baku), "market_open": False}
-        with open(f"{DATA_DIR}/predictions.json","w") as f: json.dump(dummy,f,indent=2)
+        with open(f"{DATA_DIR}/predictions.json","w") as f:
+            json.dump(dummy,f,indent=2)
         return
+
+    # Market açıqdır - normal axın
     journal_oxu("KO")
     macro = fetch_macro_yfinance()
     fred = fetch_fred_data()
     extras = fetch_finnhub_extras("KO")
     yahoo_days = fetch_yahoo_earnings("KO")
-    if extras.get("earnings_days", 30) == 30 and yahoo_days!= 30: extras["earnings_days"] = yahoo_days
+    if extras.get("earnings_days", 30) == 30 and yahoo_days!= 30:
+        extras["earnings_days"] = yahoo_days
+
     news_data = {}
     for ticker in TICKERS:
         try:
@@ -351,6 +360,7 @@ def main():
         except Exception as e:
             print(f"News err {ticker}: {e}")
             news_data[ticker] = (0, "", False)
+
     all_results = {}
     for ticker in TICKERS:
         res = {}
@@ -365,8 +375,10 @@ def main():
 
     os.makedirs(DATA_DIR, exist_ok=True)
     final_out = {"predictions": all_results, "updated": str(baku), "macro": macro, "fred": fred, "extras": extras}
-    with open(f"{DATA_DIR}/predictions.json","w") as f: json.dump(final_out,f,indent=2)
+    with open(f"{DATA_DIR}/predictions.json","w") as f:
+        json.dump(final_out,f,indent=2)
     print(f"💾 Saved {DATA_DIR}/predictions.json")
+
     try:
         msg = f"🤖 KO V8 {baku.strftime('%d.%m %H:%M')} Baku\n"
         for t in TICKERS:
@@ -379,7 +391,7 @@ def main():
             ns_val = news_data.get("KO", (0,"",False))[0]
             journal_yaz("KO", all_results["KO"], pv, macro=macro, fred=fred, extras=extras, news_sent=ns_val)
         send_telegram(msg)
-    except Exception as e: 
+    except Exception as e:
         print(f"TG err {e}")
         traceback.print_exc()
 
