@@ -359,12 +359,21 @@ def journal_oxu(ticker="KO", son_n=5):
         return None
     try:
         df = pd.read_csv(JOURNAL_PATH)
+        
+        # --- FIX: Qarışıq timezone fix ---
+        if 'tarix' in df.columns:
+            df['tarix'] = pd.to_datetime(df['tarix'], utc=True, errors='coerce')
+            df['tarix'] = df['tarix'].dt.tz_convert(BAKU_TZ)
+        
         df = df[df['ticker']==ticker].tail(son_n)
-        if df.empty: return None
+        if df.empty: 
+            return None
+            
         print(f"📓 Son {len(df)} qərar:")
         for _, r in df.iterrows():
             print(f"  {r['tarix']} -> {r['signal_5g']} %{r['conf_5g']} @ ${r['price']}")
         return df
+        
     except Exception as e:
         print(f"journal xətası: {e}")
         return None
