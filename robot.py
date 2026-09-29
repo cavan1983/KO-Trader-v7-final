@@ -303,25 +303,52 @@ def main():
                     msg += f"{t} {k}: {r['signal']} {r['conf']:.0f}% @ ${r['price']:.2f}\n"
         if "KO" in all_results:
             pv = all_results["KO"].get("5g", {}).get("price", 0)
+            ns = news_data.get("KO", (0,"",False))[0]
             journal_yaz("KO", all_results["KO"], pv)
         send_telegram(msg)
     except Exception as e: print(f"TG err {e}")
 def journal_yaz(ticker, results, price_val):
-    import csv
-    baku, _ = get_times()
-    row = {
-        'tarix': baku.strftime('%Y-%m-%d %H:%M'),
-        'ticker': ticker,
-        'signal_5g': results.get('5g', {}).get('signal',''),
-        'conf_5g': round(results.get('5g', {}).get('conf',0),1),
-        'price': round(float(price_val),2) if price_val else 0,
-    }
-    exists = os.path.exists(JOURNAL_PATH)
-    with open(JOURNAL_PATH, 'a', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=row.keys())
-        if not exists: w.writeheader()
-        w.writerow(row)
-    print(f"📓 Dəftərə yazıldı: {row}")
+def journal_yaz(ticker, res, price_now, macro=None, fred=None, extras=None, news_sent=None):
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        jp = f"{DATA_DIR}/decision_journal.csv"
+        new = not os.path.exists(jp)
+        with open(jp,"a",newline="") as f:
+            w = csv.writer(f)
+            if new:
+                w.writerow(["tarix","ticker",
+                    "s1s","c1s","p1s","rsi1s","ma201s",
+                    "s1g","c1g","p1g","rsi1g","ma201g",
+                    "s3g","c3g","p3g","rsi3g","ma203g",
+                    "s5g","c5g","p5g","rsi5g","ma205g",
+                    "news_sent","earnings_days","insider",
+                    "spy","xlp","tnx","uup",
+                    "fed","cpi","cpi_yoy","unemp","t10y2y"])
+            def g(h,k):
+                d=res.get(h,{})
+                return d.get(k,"")
+            w.writerow([
+                datetime.now(BAKU).strftime("%Y-%m-%d %H:%M"), ticker,
+                g("1s","signal"), round(g("1s","conf") or 0,1), g("1s","price"), g("1s","rsi"), g("1s","ma20"),
+                g("1g","signal"), round(g("1g","conf") or 0,1), g("1g","price"), g("1g","rsi"), g("1g","ma20"),
+                g("3g","signal"), round(g("3g","conf") or 0,1), g("3g","price"), g("3g","rsi"), g("3g","ma20"),
+                g("5g","signal"), round(g("5g","conf") or 0,1), round(price_now,2), g("5g","rsi"), g("5g","ma20"),
+                round(news_sent or 0,3),
+                extras.get("earnings_days","") if extras else "",
+                extras.get("insider_score","") if extras else "",
+                macro.get("spy","") if macro else "",
+                macro.get("xlp","") if macro else "",
+                macro.get("tnx","") if macro else "",
+                macro.get("uup","") if macro else "",
+                fred.get("fed_funds","") if fred else "",
+                fred.get("cpi","") if fred else "",
+                fred.get("cpi_yoy","") if fred else "",
+                fred.get("unemp","") if fred else "",
+                fred.get("t10y2y","") if fred else "",
+            ])
+        print(f"📓 Dəftərə yazıldı: {ticker}")
+    except Exception as e:
+        print(f"Journal yazı xətası: {e}")
 
 def journal_oxu(ticker="KO", son_n=5):
     if not os.path.exists(JOURNAL_PATH):
