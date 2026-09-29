@@ -1,5 +1,5 @@
 """
-TRADE PRO V8.0 - KO ONLY + MACRO + FRED + SMART
+TRADE PRO V8.0 - KO ONLY + MACRO + FRED + SMART - FIXED
 """
 import os, json, pickle, warnings, traceback, csv
 from datetime import datetime
@@ -36,7 +36,7 @@ JOURNAL_PATH = f"{DATA_DIR}/decision_journal.csv"
 print("🧠 KO V8 - MACRO + SENTIMENT + EARNINGS + FRED")
 
 BAKU_TZ = pytz.timezone("Asia/Baku")
-BAKU = BAKU_TZ # köhnə kod BAKU deyə çağırdığı üçün
+BAKU = BAKU_TZ
 NY_TZ = pytz.timezone("America/New_York")
 NY = NY_TZ
 
@@ -70,7 +70,7 @@ def fetch_data(ticker, period, interval):
     if os.path.exists(db_path):
         try:
             df_db = pd.read_csv(db_path, parse_dates=True, index_col=0)
-            df_db.index = pd.to_datetime(df_db.index, errors='coerce')
+            df_db.index = pd.to_datetime(df_db.index, utc=True, errors='coerce')
             df_db = df_db[~df_db.index.isna()].sort_index()
             if df_db.empty:
                 df_db = None
@@ -90,7 +90,7 @@ def fetch_data(ticker, period, interval):
             if df is None or df.empty: continue
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
-            df.index = pd.to_datetime(df.index, errors='coerce')
+            df.index = pd.to_datetime(df.index, utc=True, errors='coerce')
             df = df.dropna().sort_index()
             if len(df) > 5:
                 df_new = df
@@ -104,7 +104,7 @@ def fetch_data(ticker, period, interval):
     if df_db is not None:
         try:
             combined = pd.concat([df_db, df_new])
-            combined.index = pd.to_datetime(combined.index, errors='coerce')
+            combined.index = pd.to_datetime(combined.index, utc=True, errors='coerce')
             combined = combined[~combined.index.isna()]
             combined = combined[~combined.index.duplicated(keep='last')].sort_index()
             combined.to_csv(db_path)
@@ -168,7 +168,6 @@ def prepare_xy(df, horizon_key, macro, extras, news_sent, fred=None):
         df['EARN_DAYS'] = extras.get("earnings_days", 30) if extras else 30
         df['INSIDER'] = extras.get("insider_score", 0) if extras else 0
 
-        # FRED features
         if fred:
             df['FED_FUNDS'] = fred.get('fed_funds', 4.5)
             df['CPI_YOY'] = fred.get('cpi_yoy', 3.0)
@@ -218,11 +217,11 @@ def train_for_ticker(ticker, macro, extras, news_sent, fred=None):
             if hk == "1s" and not is_us_market_open(): print(f"skip 1s - bazar bağlı")
             df = fetch_data(ticker, cfg["period"], cfg["interval"])
             if df is None:
-                results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": 0.0, "open": 0.0, "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}}
+                results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": 0.0, "open": 0.0, "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}, "meta": {}}
                 continue
             X, y, scaler, meta = prepare_xy(df, hk, macro, extras, news_sent, fred)
             if X is None:
-                results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": float(df['Close'].iloc[-1]), "open": float(df['Open'].iloc[-1]), "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}}
+                results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": float(df['Close'].iloc[-1]), "open": float(df['Open'].iloc[-1]), "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}, "meta": {}}
                 continue
             input_shape = (X.shape[1], X.shape[2])
             brain_path = f"{DATA_DIR}/brain_{ticker}_{hk}.keras"
@@ -253,15 +252,86 @@ def train_for_ticker(ticker, macro, extras, news_sent, fred=None):
         except Exception as e:
             print(f"[FAIL] {ticker} {hk}: {e}")
             traceback.print_exc()
-            results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": 0.0, "open": 0.0, "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}}
+            results[hk] = {"signal": "GÖZLƏ", "conf": 50.0, "price": 0.0, "open": 0.0, "probs": {"AL": 33.0, "GÖZLƏ": 50.0, "SAT": 17.0}, "meta": {}}
     return results
+
+def journal_yaz(ticker, results, price_val, macro=None, fred=None, extras=None, news_sent=0):
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        jp = f"{DATA_DIR}/decision_journal.csv"
+        new = not os.path.exists(jp)
+        with open(jp,"a",newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            if new:
+                w.writerow(["tarix","ticker",
+                    "s1s","c1s","p1s","rsi1s","ma201s",
+                    "s1g","c1g","p1g","rsi1g","ma201g",
+                    "s3g","c3g","p3g","rsi3g","ma203g",
+                    "s5g","c5g","p5g","rsi5g","ma205g",
+                    "news_sent","earnings_days","insider",
+                    "spy","xlp","tnx","uup",
+                    "fed","cpi","cpi_yoy","unemp","t10y2y"])
+            
+            def get_r(h, key, meta_key=None):
+                d = results.get(h, {})
+                if meta_key:
+                    return d.get("meta", {}).get(meta_key, "")
+                return d.get(key, "")
+
+            w.writerow([
+                datetime.now(BAKU_TZ).strftime("%Y-%m-%d %H:%M:%S%z"), ticker,
+                get_r("1s","signal"), round(float(get_r("1s","conf") or 0),1), get_r("1s","price"), get_r("1s",None,"rsi"), get_r("1s",None,"ma20"),
+                get_r("1g","signal"), round(float(get_r("1g","conf") or 0),1), get_r("1g","price"), get_r("1g",None,"rsi"), get_r("1g",None,"ma20"),
+                get_r("3g","signal"), round(float(get_r("3g","conf") or 0),1), get_r("3g","price"), get_r("3g",None,"rsi"), get_r("3g",None,"ma20"),
+                get_r("5g","signal"), round(float(get_r("5g","conf") or 0),1), round(float(price_val or 0),2), get_r("5g",None,"rsi"), get_r("5g",None,"ma20"),
+                round(float(news_sent or 0),3),
+                extras.get("earnings_days","") if extras else "",
+                extras.get("insider_score","") if extras else "",
+                macro.get("SPY",{}).get("ret","") if macro else "",
+                macro.get("XLP",{}).get("ret","") if macro else "",
+                macro.get("^TNX",{}).get("close","") if macro else "",
+                macro.get("UUP",{}).get("ret","") if macro else "",
+                macro.get("^VIX",{}).get("close","") if macro else "",
+                fred.get("fed_funds","") if fred else "",
+                fred.get("cpi","") if fred else "",
+                fred.get("cpi_yoy","") if fred else "",
+                fred.get("unemp","") if fred else "",
+                fred.get("t10y2y","") if fred else "",
+            ])
+        print(f"📓 Dəftərə yazıldı: {ticker}")
+    except Exception as e:
+        print(f"Journal yazı xətası: {e}")
+        traceback.print_exc()
+
+def journal_oxu(ticker="KO", son_n=5):
+    if not os.path.exists(JOURNAL_PATH):
+        print("📓 Dəftər boşdur, ilk dəfədir")
+        return None
+    try:
+        df = pd.read_csv(JOURNAL_PATH)
+        if 'tarix' in df.columns:
+            df['tarix'] = pd.to_datetime(df['tarix'], utc=True, errors='coerce')
+            df['tarix'] = df['tarix'].dt.tz_convert(BAKU_TZ)
+        df = df[df['ticker']==ticker].tail(son_n)
+        if df.empty: 
+            return None
+        print(f"📓 Son {len(df)} qərar:")
+        for _, r in df.iterrows():
+            sig = r.get('s5g') or r.get('signal_5g') or ''
+            conf = r.get('c5g') or r.get('conf_5g') or ''
+            price = r.get('p5g') or r.get('price') or ''
+            print(f"  {r['tarix']} -> {sig} %{conf} @ ${price}")
+        return df
+    except Exception as e:
+        print(f"journal xətası: {e}")
+        traceback.print_exc()
+        return None
 
 def main():
     baku, ny = get_times()
     print(f"V8.0 KO MACRO+FRED - {baku} | NY {ny.strftime('%A %H:%M')} | Market: {is_us_market_open()}")
     if ny.weekday() >= 5:
         print("🔴 WEEKEND - exit")
-        # YENƏ DƏ fayl yarat ki GitHub boş deməsin
         os.makedirs(DATA_DIR, exist_ok=True)
         dummy = {"KO": {"1s": {"signal":"GÖZLƏ","conf":50},"1g": {"signal":"GÖZLƏ","conf":50},"3g": {"signal":"GÖZLƏ","conf":50},"5g": {"signal":"GÖZLƏ","conf":50}}, "updated": str(baku), "market_open": False}
         with open(f"{DATA_DIR}/predictions.json","w") as f: json.dump(dummy,f,indent=2)
@@ -283,20 +353,20 @@ def main():
             news_data[ticker] = (0, "", False)
     all_results = {}
     for ticker in TICKERS:
+        res = {}
         try:
             ns = news_data.get(ticker, (0,"",False))[0]
             res = train_for_ticker(ticker, macro, extras, ns, fred)
             all_results[ticker] = res
         except Exception as e:
             print(f"❌ {ticker} fail: {e}")
-            all_results[ticker] = {}
+            traceback.print_exc()
+            all_results[ticker] = res if res else {}
 
-    # YAZ
     os.makedirs(DATA_DIR, exist_ok=True)
     final_out = {"predictions": all_results, "updated": str(baku), "macro": macro, "fred": fred, "extras": extras}
     with open(f"{DATA_DIR}/predictions.json","w") as f: json.dump(final_out,f,indent=2)
     print(f"💾 Saved {DATA_DIR}/predictions.json")
-    # Telegram
     try:
         msg = f"🤖 KO V8 {baku.strftime('%d.%m %H:%M')} Baku\n"
         for t in TICKERS:
@@ -306,77 +376,12 @@ def main():
                     msg += f"{t} {k}: {r['signal']} {r['conf']:.0f}% @ ${r['price']:.2f}\n"
         if "KO" in all_results:
             pv = all_results["KO"].get("5g", {}).get("price", 0)
-            ns = news_data.get("KO", (0,"",False))[0]
-            journal_yaz("KO", all_results["KO"], pv)
+            ns_val = news_data.get("KO", (0,"",False))[0]
+            journal_yaz("KO", all_results["KO"], pv, macro=macro, fred=fred, extras=extras, news_sent=ns_val)
         send_telegram(msg)
-    except Exception as e: print(f"TG err {e}")
-def journal_yaz(ticker, results, price_val):
-    try:
-        os.makedirs(DATA_DIR, exist_ok=True)
-        jp = f"{DATA_DIR}/decision_journal.csv"
-        new = not os.path.exists(jp)
-        with open(jp,"a",newline="") as f:
-            w = csv.writer(f)
-            if new:
-                w.writerow(["tarix","ticker",
-                    "s1s","c1s","p1s","rsi1s","ma201s",
-                    "s1g","c1g","p1g","rsi1g","ma201g",
-                    "s3g","c3g","p3g","rsi3g","ma203g",
-                    "s5g","c5g","p5g","rsi5g","ma205g",
-                    "news_sent","earnings_days","insider",
-                    "spy","xlp","tnx","uup",
-                    "fed","cpi","cpi_yoy","unemp","t10y2y"])
-            def g(h,k):
-                d=res.get(h,{})
-                return d.get(k,"")
-            w.writerow([
-                datetime.now(BAKU).strftime("%Y-%m-%d %H:%M"), ticker,
-                g("1s","signal"), round(g("1s","conf") or 0,1), g("1s","price"), g("1s","rsi"), g("1s","ma20"),
-                g("1g","signal"), round(g("1g","conf") or 0,1), g("1g","price"), g("1g","rsi"), g("1g","ma20"),
-                g("3g","signal"), round(g("3g","conf") or 0,1), g("3g","price"), g("3g","rsi"), g("3g","ma20"),
-                g("5g","signal"), round(g("5g","conf") or 0,1), round(price_now,2), g("5g","rsi"), g("5g","ma20"),
-                round(news_sent or 0,3),
-                extras.get("earnings_days","") if extras else "",
-                extras.get("insider_score","") if extras else "",
-                macro.get("spy","") if macro else "",
-                macro.get("xlp","") if macro else "",
-                macro.get("tnx","") if macro else "",
-                macro.get("uup","") if macro else "",
-                macro.get("vix","") if macro else "",
-                fred.get("fed_funds","") if fred else "",
-                fred.get("cpi","") if fred else "",
-                fred.get("cpi_yoy","") if fred else "",
-                fred.get("unemp","") if fred else "",
-                fred.get("t10y2y","") if fred else "",
-            ])
-        print(f"📓 Dəftərə yazıldı: {ticker}")
-    except Exception as e:
-        print(f"Journal yazı xətası: {e}")
-
-def journal_oxu(ticker="KO", son_n=5):
-    if not os.path.exists(JOURNAL_PATH):
-        print("📓 Dəftər boşdur, ilk dəfədir")
-        return None
-    try:
-        df = pd.read_csv(JOURNAL_PATH)
-        
-        # --- FIX: Qarışıq timezone fix ---
-        if 'tarix' in df.columns:
-            df['tarix'] = pd.to_datetime(df['tarix'], utc=True, errors='coerce')
-            df['tarix'] = df['tarix'].dt.tz_convert(BAKU_TZ)
-        
-        df = df[df['ticker']==ticker].tail(son_n)
-        if df.empty: 
-            return None
-            
-        print(f"📓 Son {len(df)} qərar:")
-        for _, r in df.iterrows():
-            print(f"  {r['tarix']} -> {r['signal_5g']} %{r['conf_5g']} @ ${r['price']}")
-        return df
-        
-    except Exception as e:
-        print(f"journal xətası: {e}")
-        return None
+    except Exception as e: 
+        print(f"TG err {e}")
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()
