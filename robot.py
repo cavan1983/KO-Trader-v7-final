@@ -302,6 +302,38 @@ def main():
                     msg += f"{t} {k}: {r['signal']} {r['conf']:.0f}% @ ${r['price']:.2f}\n"
         send_telegram(msg)
     except Exception as e: print(f"TG err {e}")
+def journal_yaz(ticker, results, price_val):
+    import csv
+    baku, _ = get_times()
+    row = {
+        'tarix': baku.strftime('%Y-%m-%d %H:%M'),
+        'ticker': ticker,
+        'signal_5g': results.get('5g', {}).get('signal',''),
+        'conf_5g': round(results.get('5g', {}).get('conf',0),1),
+        'price': round(float(price_val),2) if price_val else 0,
+    }
+    exists = os.path.exists(JOURNAL_PATH)
+    with open(JOURNAL_PATH, 'a', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=row.keys())
+        if not exists: w.writeheader()
+        w.writerow(row)
+    print(f"📓 Dəftərə yazıldı: {row}")
+
+def journal_oxu(ticker="KO", son_n=5):
+    if not os.path.exists(JOURNAL_PATH):
+        print("📓 Dəftər boşdur, ilk dəfədir")
+        return None
+    try:
+        df = pd.read_csv(JOURNAL_PATH)
+        df = df[df['ticker']==ticker].tail(son_n)
+        if df.empty: return None
+        print(f"📓 Son {len(df)} qərar:")
+        for _, r in df.iterrows():
+            print(f"  {r['tarix']} -> {r['signal_5g']} %{r['conf_5g']} @ ${r['price']}")
+        return df
+    except Exception as e:
+        print(f"journal xətası: {e}")
+        return None
 
 if __name__ == "__main__":
     main()
