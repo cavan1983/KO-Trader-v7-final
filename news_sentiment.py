@@ -1,8 +1,9 @@
 import os, json, requests
 from datetime import datetime, timedelta
 
-# DÜZƏLDİLDİ: hamısı data/ içində
-DATA_DIR = "data"
+from config import DATA_DIR
+
+# Ensure runtime folders exist.
 os.makedirs(DATA_DIR, exist_ok=True)
 CACHE_FILE = os.path.join(DATA_DIR, "news_cache.json")
 CACHE_HOURS = 6
@@ -13,6 +14,7 @@ try:
 except:
     VADER = False
 
+
 def _load():
     if os.path.exists(CACHE_FILE):
         try:
@@ -22,12 +24,14 @@ def _load():
             return {}
     return {}
 
+
 def _save(cache):
     try:
         with open(CACHE_FILE, "w", encoding='utf-8') as f:
             json.dump(cache, f, indent=2, ensure_ascii=False)
     except:
         pass
+
 
 def get_news_sentiment(ticker="KO"):
     cache = _load()

@@ -11,11 +11,13 @@ import yfinance as yf
 import pandas as pd
 import pytz
 
-DATA_DIR = "data"
+from config import DATA_DIR
+
 os.makedirs(DATA_DIR, exist_ok=True)
 MACRO_CACHE = os.path.join(DATA_DIR, "macro_cache.json")
 EXTRAS_CACHE = os.path.join(DATA_DIR, "extras_cache.json")
 FRED_CACHE = os.path.join(DATA_DIR, "fred_cache.json")
+
 
 def _load_json(path):
     if os.path.exists(path):
@@ -26,6 +28,7 @@ def _load_json(path):
             return {}
     return {}
 
+
 def _save_json(path, data):
     try:
         with open(path, "w", encoding='utf-8') as f:
@@ -33,9 +36,11 @@ def _save_json(path, data):
     except Exception as e:
         print(f"cache save error {path}: {e}")
 
+
 def is_ny_market_open():
     now_ny = datetime.now(pytz.timezone("America/New_York"))
     return now_ny.weekday() < 5 and 9 <= now_ny.hour < 16
+
 
 def fetch_macro_yfinance():
     cache = _load_json(MACRO_CACHE)
@@ -75,6 +80,7 @@ def fetch_macro_yfinance():
     except Exception as e:
         print(f"📈 Macro error {e}")
         return cache if cache else {"time": now.isoformat()}
+
 
 def fetch_finnhub_extras(ticker="KO"):
     cache = _load_json(EXTRAS_CACHE)
@@ -138,6 +144,7 @@ def fetch_finnhub_extras(ticker="KO"):
     _save_json(EXTRAS_CACHE, cache)
     return out
 
+
 def fetch_yahoo_earnings(ticker="KO"):
     try:
         tk = yf.Ticker(ticker)
@@ -154,6 +161,7 @@ def fetch_yahoo_earnings(ticker="KO"):
     except Exception as e:
         print(f"📅 Yahoo earnings error {e}")
     return 30
+
 
 def fetch_fred_data():
     cache = _load_json(FRED_CACHE)

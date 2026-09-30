@@ -1,9 +1,9 @@
 import os, json, pickle, warnings, traceback, csv
 from datetime import datetime
 
+from config import BASE_DIR, DATA_DIR, ensure_runtime_dirs
 from news_sentiment import get_news_sentiment
 from macro_data import fetch_macro_yfinance, fetch_finnhub_extras, fetch_yahoo_earnings, fetch_fred_data
-from config import BASE_DIR, DATA_DIR, ensure_runtime_dirs
 import pytz
 import yfinance as yf
 import pandas as pd
@@ -12,6 +12,8 @@ import requests
 
 warnings.filterwarnings("ignore")
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+ensure_runtime_dirs()
 
 try:
     import tensorflow as tf
