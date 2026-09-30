@@ -1,5 +1,8 @@
 """
-TRADE PRO V8.1 - KO ONLY + MACRO + FRED + SL/TP + AUTO RESET
+TRADE PRO V8.1 - KO ONLY + MACRO + FRED + SL/TP
+DISCLAIMER: Bu bot və predictions.json yalnız təhsil/test üçündür.
+AL/SAT/GÖZLƏ siqnalları maliyyə tövsiyəsi deyil.
+Real pulla ticarət etməzdən əvvəl peşəkar məsləhətçi ilə məsləhətləşin.
 """
 import os, json, pickle, warnings, traceback, csv
 from datetime import datetime
