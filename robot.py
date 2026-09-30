@@ -436,6 +436,7 @@ def main():
             if w.get('buy_price',0) > 0:
                 ch = (w['total_value']-10000)/100
                 msg += f"\nPoz: {w['shares']:.1f} @ {w['buy_price']:.2f}"
+                msg += "\n\n⚠️ Təhsil üçündür, maliyyə tövsiyəsi deyil."
         if "KO" in all_results:
             pv = all_results["KO"].get("5g", {}).get("price", 0)
             ns_val = news_data.get("KO", (0,"",False))[0]
