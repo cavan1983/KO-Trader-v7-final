@@ -167,6 +167,9 @@ def prepare_xy(df, horizon_key, macro, extras, news_sent, fred=None):
         df['NEWS_SENT'] = news_sent if news_sent is not None else 0
         df['EARN_DAYS'] = extras.get("earnings_days", 30) if extras else 30
         df['INSIDER'] = extras.get("insider_score", 0) if extras else 0
+        # FIX 2: Macro-nu KO ilə interaksiya kimi veririk ki, sabit qalmasın
+        df['SPY_KO_DIFF'] = spy_ret - df['RET']*100
+        df['MARKET_STRESS'] = vix * (1 if spy_ret < 0 else -1)
 
         if fred:
             df['FED_FUNDS'] = fred.get('fed_funds', 4.5)
@@ -187,7 +190,7 @@ def prepare_xy(df, horizon_key, macro, extras, news_sent, fred=None):
         df['LABEL'] = df['CHANGE'].apply(label_change)
         df = df.dropna()
         if len(df) < 80: return None, None, None, None
-        features = ['MA20','MA50','MA200','RET','RSI','VOL_CH','VIX','SPY_RET','XLP_RET','TNX','UUP_RET','NEWS_SENT','EARN_DAYS','INSIDER','FED_FUNDS','CPI_YOY']
+                features = ['MA20','MA50','MA200','RET','RSI','VOL_CH','VIX','SPY_RET','XLP_RET','TNX','UUP_RET','NEWS_SENT','EARN_DAYS','INSIDER','FED_FUNDS','CPI_YOY','SPY_KO_DIFF','MARKET_STRESS']
         df[features] = df[features].bfill().fillna(0)
         scaler = MinMaxScaler()
         scaled = scaler.fit_transform(df[features].values)
