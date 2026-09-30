@@ -181,8 +181,8 @@ def prepare_xy(df, horizon_key, macro, extras, news_sent, fred=None):
         df['FUTURE'] = df['Close'].shift(-shift_n)
         df['CHANGE'] = (df['FUTURE'] - df['Close']) / df['Close'] * 100
         def label_change(ch):
-            if ch > 0.5: return 0
-            elif ch < -0.5: return 2
+            if ch > 1.5: return 0
+            elif ch < -1.5: return 2
             else: return 1
         df['LABEL'] = df['CHANGE'].apply(label_change)
         df = df.dropna()
