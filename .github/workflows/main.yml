@@ -2,16 +2,16 @@ name: KO Trader V8 MACRO + FRED
 
 on:
   schedule:
-    # NY Bazar: 9:30 - 16:00 ET = 13:30 - 20:00 UTC
-    # Həftə içi (1-5) hər 30 dəq: 13:30, 14:00, 14:30 ... 20:00
-    - cron: '30 13 * * 1-5'
-    - cron: '0,30 14-19 * * 1-5'
-    - cron: '0 20 * * 1-5'
+    # NY Market: 9:30 - 16:00 ET = 13:30 - 20:00 UTC
+    # Həftə içi (1-5) hər 30 dəq
+    - cron: '30 13 * * 1-5'      # 9:30 ET
+    - cron: '0,30 14-19 * * 1-5' # 10:00-15:00 ET
+    - cron: '0 20 * * 1-5'       # 16:00 ET (close)
   workflow_dispatch:
 
 concurrency:
   group: ko-trader
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   trade:
@@ -19,11 +19,12 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+    
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -31,39 +32,75 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install deps
-        run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Restore data cache
         uses: actions/cache@v4
         with:
-          path: data
-          key: ko-trader-v8-${{ runner.os }}
-          restore-keys: ko-trader-v8-
+          path: data/
+          key: ko-trader-v8-data-${{ runner.os }}
+          restore-keys: |
+            ko-trader-v8-data-
+            ko-trader-v8-
 
-      - name: Run KO V8
+      - name: Run KO Trader V8
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-        run: python robot.py
-
-      - name: Commit predictions to repo
         run: |
-          mkdir -p data
-          ls -lh data/ || echo "data bosdur"
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add -f data/*.json data/*.csv || echo "add fail"
-          git diff --staged --name-only
-          git commit -m "V8+FRED auto-update $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes to commit"
-          git push || echo "Push failed, trying pull --rebase"; git pull --rebase && git push
+          python robot.py
+          echo "✅ KO V8 completed"
+
+      - name: Check generated files
+        run: |
+          echo "📂 Data directory contents:"
+          ls -lh data/ 2>/dev/null || echo "⚠️ data/ not found"
+          echo "📄 JSON files:"
+          ls -1 data/*.json 2>/dev/null || echo "⚠️ no JSON files"
+          echo "📊 CSV files:"
+          ls -1 data/*.csv 2>/dev/null || echo "⚠️ no CSV files"
+
+      - name: Commit and push to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add all data files
+          git add data/*.json data/*.csv 2>/dev/null || true
+          
+          # Check if there are changes
+          if git diff --cached --quiet; then
+            echo "ℹ️ No changes to commit"
+            exit 0
+          fi
+          
+          # Commit and push
+          git commit -m "🤖 V8 auto-update: $(date -u +'%Y-%m-%d %H:%M UTC')" || exit 1
+          git push origin main || {
+            echo "⚠️ Push failed, trying pull --rebase..."
+            git pull --rebase origin main
+            git push origin main
+          }
+          echo "✅ Push completed"
 
       - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: predictions-v8
+          name: predictions-v8-${{ github.run_number }}
           path: data/
           retention-days: 7
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          echo "## 🤖 KO Trader V8 Run Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Run ID**: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Run Number**: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Completed" >> $GITHUB_STEP_SUMMARY
