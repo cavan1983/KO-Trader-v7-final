@@ -2,8 +2,11 @@ name: KO Trader V8 MACRO + FRED
 
 on:
   schedule:
-        - cron: '0 * * * *'   # hər saatın 00-da
-        - cron: '30 * * * *'  # və 30-da = hər 30 dəq bir dəfə (45 dəq GitHub-da mümkün deyil)
+    # NY Bazar: 9:30 - 16:00 ET = 13:30 - 20:00 UTC
+    # Həftə içi (1-5) hər 30 dəq: 13:30, 14:00, 14:30 ... 20:00
+    - cron: '30 13 * * 1-5'
+    - cron: '0,30 14-19 * * 1-5'
+    - cron: '0 20 * * 1-5'
   workflow_dispatch:
 
 concurrency:
@@ -17,28 +20,28 @@ jobs:
     permissions:
       contents: write
     steps:
-            - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-            - name: Setup Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
-            - name: Install deps
+      - name: Install deps
         run: pip install -r requirements.txt
 
-            - name: Restore data cache
+      - name: Restore data cache
         uses: actions/cache@v4
         with:
           path: data
-          key: ko-trader-v8-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          key: ko-trader-v8-${{ runner.os }}
           restore-keys: ko-trader-v8-
 
-            - name: Run KO V8
+      - name: Run KO V8
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -46,10 +49,21 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python robot.py
 
-            - name: Commit predictions
+      - name: Commit predictions to repo
         run: |
+          mkdir -p data
+          ls -lh data/ || echo "data bosdur"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add -f data/*.json data/*.csv || true
-          git diff --staged --quiet || git commit -m "V8 auto-update $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git pull --rebase && git push || echo "push fail"
+          git add -f data/*.json data/*.csv || echo "add fail"
+          git diff --staged --name-only
+          git commit -m "V8+FRED auto-update $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes to commit"
+          git push || echo "Push failed, trying pull --rebase"; git pull --rebase && git push
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: predictions-v8
+          path: data/
+          retention-days: 7
