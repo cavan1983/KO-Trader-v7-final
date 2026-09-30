@@ -1,6 +1,8 @@
 # KO Trader-v7
-Yalniz KO - 1s,1g,3g,5g - EarlyStopping
-DISCLAIMER:
+Yalnız KO - 1s,1g,3g,5g - EarlyStopping
+
+## ⚠️ DISCLAIMER / İMTİNA
+
 **AZ:**
 Bu tətbiq və `predictions.json` yalnız təhsil və test məqsədlidir.
 Buradakı AL/SAT/GÖZLƏ siqnalları maliyyə və ya investisiya tövsiyəsi deyil.
