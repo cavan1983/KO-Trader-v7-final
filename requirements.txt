@@ -1,8 +1,9 @@
-yfinance
-pandas
-numpy
-requests
-pytz
-tensorflow
-scikit-learn
-vaderSentiment
+yfinance==0.2.32
+pandas==2.1.0
+numpy==1.24.0
+requests==2.31.0
+pytz==2023.3
+tensorflow==2.15.1
+scikit-learn==1.3.0
+vaderSentiment==3.3.2
+python-dotenv==1.0.0
