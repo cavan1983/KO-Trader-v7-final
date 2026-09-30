@@ -167,7 +167,7 @@ def prepare_xy(df, horizon_key, macro, extras, news_sent, fred=None):
         df['NEWS_SENT'] = news_sent if news_sent is not None else 0
         df['EARN_DAYS'] = extras.get("earnings_days", 30) if extras else 30
         df['INSIDER'] = extras.get("insider_score", 0) if extras else 0
-        # FIX 2: Macro-nu KO ilə interaksiya kimi veririk ki, sabit qalmasın
+        # FIX 2: Macro-nu KO ile interaksiya kimi veririk ki, sabit qalmasin
         df['SPY_KO_DIFF'] = spy_ret - df['RET']*100
         df['MARKET_STRESS'] = vix * (1 if spy_ret < 0 else -1)
 
@@ -190,7 +190,7 @@ def prepare_xy(df, horizon_key, macro, extras, news_sent, fred=None):
         df['LABEL'] = df['CHANGE'].apply(label_change)
         df = df.dropna()
         if len(df) < 80: return None, None, None, None
-                features = ['MA20','MA50','MA200','RET','RSI','VOL_CH','VIX','SPY_RET','XLP_RET','TNX','UUP_RET','NEWS_SENT','EARN_DAYS','INSIDER','FED_FUNDS','CPI_YOY','SPY_KO_DIFF','MARKET_STRESS']
+        features = ['MA20','MA50','MA200','RET','RSI','VOL_CH','VIX','SPY_RET','XLP_RET','TNX','UUP_RET','NEWS_SENT','EARN_DAYS','INSIDER','FED_FUNDS','CPI_YOY','SPY_KO_DIFF','MARKET_STRESS']
         df[features] = df[features].bfill().fillna(0)
         scaler = MinMaxScaler()
         scaled = scaler.fit_transform(df[features].values)
@@ -274,13 +274,11 @@ def journal_yaz(ticker, results, price_val, macro=None, fred=None, extras=None, 
                     "news_sent","earnings_days","insider",
                     "spy","xlp","tnx","uup","vix",
                     "fed","cpi","cpi_yoy","unemp","t10y2y"])
-            
             def get_r(h, key, meta_key=None):
                 d = results.get(h, {})
                 if meta_key:
                     return d.get("meta", {}).get(meta_key, "")
                 return d.get(key, "")
-
             w.writerow([
                 datetime.now(BAKU_TZ).strftime("%Y-%m-%d %H:%M:%S%z"), ticker,
                 get_r("1s","signal"), round(float(get_r("1s","conf") or 0),1), get_r("1s","price"), get_r("1s",None,"rsi"), get_r("1s",None,"ma20"),
@@ -316,7 +314,7 @@ def journal_oxu(ticker="KO", son_n=5):
             df['tarix'] = pd.to_datetime(df['tarix'], utc=True, errors='coerce')
             df['tarix'] = df['tarix'].dt.tz_convert(BAKU_TZ)
         df = df[df['ticker']==ticker].tail(son_n)
-        if df.empty: 
+        if df.empty:
             return None
         print(f"📓 Son {len(df)} qərar:")
         for _, r in df.iterrows():
@@ -330,30 +328,88 @@ def journal_oxu(ticker="KO", son_n=5):
         traceback.print_exc()
         return None
 
+def journal_qiymetlendir():
+    """5 gün əvvəlki proqnozlar düz çıxdımı? Yoxlayıb csv-yə yazır"""
+    try:
+        if not os.path.exists(JOURNAL_PATH):
+            return
+        df_j = pd.read_csv(JOURNAL_PATH)
+        if df_j.empty:
+            return
+        if 'real_p_5g' not in df_j.columns:
+            df_j['real_p_5g'] = ""
+            df_j['real_change_5g'] = ""
+            df_j['correct_5g'] = ""
+        hist = yf.download("KO", period="15d", interval="1d", progress=False, auto_adjust=True)
+        if hist.empty:
+            return
+        if isinstance(hist.columns, pd.MultiIndex):
+            hist.columns = hist.columns.get_level_values(0)
+        hist.index = pd.to_datetime(hist.index, utc=True)
+        updated = False
+        for idx, row in df_j.iterrows():
+            if pd.notna(row.get('correct_5g')) and str(row.get('correct_5g'))!= "":
+                continue
+            try:
+                tarix = pd.to_datetime(row['tarix'], utc=True, errors='coerce')
+                if pd.isna(tarix):
+                    continue
+                if (datetime.now(pytz.UTC) - tarix).days < 5:
+                    continue
+                p5g = float(row.get('p5g') or 0)
+                if p5g == 0:
+                    continue
+                future = hist[hist.index > tarix]
+                if len(future) < 3:
+                    continue
+                real_price = float(future.iloc[2]['Close'])
+                real_change = (real_price - p5g) / p5g * 100
+                s5g = str(row.get('s5g', ''))
+                correct = ""
+                if s5g == "AL" and real_change > 1.5:
+                    correct = "✅ DÜZ"
+                elif s5g == "SAT" and real_change < -1.5:
+                    correct = "✅ DÜZ"
+                elif s5g == "GÖZLƏ" and abs(real_change) <= 1.5:
+                    correct = "✅ DÜZ"
+                else:
+                    correct = "❌ SƏHV"
+                df_j.at[idx, 'real_p_5g'] = round(real_price, 2)
+                df_j.at[idx, 'real_change_5g'] = round(real_change, 2)
+                df_j.at[idx, 'correct_5g'] = correct
+                updated = True
+            except:
+                continue
+        if updated:
+            df_j.to_csv(JOURNAL_PATH, index=False)
+            print(f"📊 Köhnə proqnozlar qiymətləndirildi")
+            valid = df_j[df_j['correct_5g']!= ""]
+            if not valid.empty:
+                duz = len(valid[valid['correct_5g'].str.contains("DÜZ")])
+                total = len(valid)
+                print(f"🏆 WinRate 5g: {duz}/{total} = {duz/total*100:.1f}%")
+    except Exception as e:
+        print(f"qiymetlendir xətası: {e}")
+
 def main():
     baku, ny = get_times()
     is_open = is_us_market_open()
     print(f"V8.0 KO MACRO+FRED - {baku} | NY {ny.strftime('%A %H:%M')} | Market: {is_open}")
-
-    # WEEKEND və ya GECƏ - bağlıdırsa çıx
     if not is_open:
         print(f"🔴 Market bağlıdır NY {ny.strftime('%A %H:%M')} - exit, run skip")
         os.makedirs(DATA_DIR, exist_ok=True)
-        # Frontend üçün dummy yazıb çıxırıq, journal-a yazmırıq
         dummy = {"KO": {"1s": {"signal":"GÖZLƏ","conf":50},"1g": {"signal":"GÖZLƏ","conf":50},"3g": {"signal":"GÖZLƏ","conf":50},"5g": {"signal":"GÖZLƏ","conf":50}}, "updated": str(baku), "market_open": False}
         with open(f"{DATA_DIR}/predictions.json","w") as f:
             json.dump(dummy,f,indent=2)
         return
-
-    # Market açıqdır - normal axın
     journal_oxu("KO")
+    journal_qiymetlendir()
     macro = fetch_macro_yfinance()
     fred = fetch_fred_data()
     extras = fetch_finnhub_extras("KO")
     yahoo_days = fetch_yahoo_earnings("KO")
     if extras.get("earnings_days", 30) == 30 and yahoo_days!= 30:
         extras["earnings_days"] = yahoo_days
-
     news_data = {}
     for ticker in TICKERS:
         try:
@@ -363,7 +419,6 @@ def main():
         except Exception as e:
             print(f"News err {ticker}: {e}")
             news_data[ticker] = (0, "", False)
-
     all_results = {}
     for ticker in TICKERS:
         res = {}
@@ -375,13 +430,11 @@ def main():
             print(f"❌ {ticker} fail: {e}")
             traceback.print_exc()
             all_results[ticker] = res if res else {}
-
     os.makedirs(DATA_DIR, exist_ok=True)
     final_out = {"predictions": all_results, "updated": str(baku), "macro": macro, "fred": fred, "extras": extras}
     with open(f"{DATA_DIR}/predictions.json","w") as f:
         json.dump(final_out,f,indent=2)
     print(f"💾 Saved {DATA_DIR}/predictions.json")
-
     try:
         msg = f"🤖 KO V8 {baku.strftime('%d.%m %H:%M')} Baku\n"
         for t in TICKERS:
