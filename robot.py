@@ -25,7 +25,7 @@ try:
 except:
     TF_AVAILABLE = False
 
-TICKERS = ["KO"]
+TICKERS = ["NVDA"]
 DATA_DIR_STR = str(DATA_DIR)
 BAKU_TZ = pytz.timezone("Asia/Baku")
 NY_TZ = pytz.timezone("America/New_York")
@@ -181,10 +181,10 @@ def send_telegram(all_results, baku_time):
     if not token or not chat_id:
         return
     try:
-        msg = f"🤖 KO TRADER V8 - {baku_time.strftime('%d.%m %H:%M')} Bakı\n"
+        msg = f"🤖 NVDA TRADER V8 - {baku_time.strftime('%d.%m %H:%M')} Bakı\n"
         for k in ["1s","1g","3g","5g"]:
-            if k in all_results["KO"]:
-                r = all_results["KO"][k]
+            if k in all_results["NVDA"]:
+                r = all_results["NVDA"][k]
                 emoji = "🟢" if r["signal"]=="AL" else "🟡"
                 msg += f"{emoji} {k}: {r['signal']} ({r['conf']:.1f}%) AL:{r.get('al_pct',0)}% GÖZLƏ:{r.get('gozle_pct',0)}%\n"
         url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -193,18 +193,18 @@ def send_telegram(all_results, baku_time):
         pass
 
 def print_final_summary(all_results, wallet_data, baku_time):
-    print("\n🤖 KO TRADER V8 - FULL UI DATA")
+    print("\n🤖 NVDA TRADER V8 - FULL UI DATA")
     for k in ["1s","1g","3g","5g"]:
-        if k in all_results["KO"]:
-            r = all_results["KO"][k]
+        if k in all_results["NVDA"]:
+            r = all_results["NVDA"][k]
             print(f"{k}: {r['signal']} Conf:{r['conf']:.1f}% AL:{r['al_pct']}% GÖZLƏ:{r['gozle_pct']}% SAT:{r['sat_pct']}% RSI:{r['rsi']}")
 
 def main():
     baku_time, ny_time = get_times()
-    all_results = {"KO": {}}
+    all_results = {"NVDA": {}}
     print("🔮 AI predictions generating...")
     for tf_name in ["1s","1g","3g","5g"]:
-        all_results["KO"][tf_name] = predict_signal_simple("KO", tf_name)
+        all_results["NVDA"][tf_name] = predict_signal_simple("KO", tf_name)
 
     # LIVE TOP CARD
     live_price, live_open, live_rsi, live_ma20, live_ma50, _ = get_real_price_full("KO")
@@ -212,7 +212,7 @@ def main():
     live_change_pct = -0.32
     
     all_results["live"] = {
-        "ticker": "KO",
+        "ticker": "NVDA",
         "price": round(live_price,2),
         "open": round(live_open,2),
         "entry": 87.18,
@@ -314,7 +314,7 @@ def main():
     
     send_telegram(all_results, baku_time)
     print_final_summary(all_results, wallet_data, baku_time)
-    print("✅ KO V8 FULL UI completed")
+    print("✅ NVDA V8 FULL UI completed")
 
 if __name__ == "__main__":
     main()
