@@ -1,5 +1,5 @@
 """
-robot_nvda_real_ai.py - FIXED for GitHub Actions yfinance blocking
+robot_nvda_real_ai.py - FIXED for root files + data/ folder both
 """
 import os, json, pickle, warnings, traceback, random
 from datetime import datetime
@@ -24,6 +24,24 @@ ensure_runtime_dirs()
 
 BAKU_TZ = pytz.timezone("Asia/Baku")
 DATA_DIR_STR = str(DATA_DIR)
+BASE_DIR_STR = str(BASE_DIR)
+
+def find_file(names):
+    """Try multiple locations: data/, root, ./"""
+    candidates = []
+    for name in names:
+        candidates.extend([
+            os.path.join(DATA_DIR_STR, name),
+            os.path.join(BASE_DIR_STR, name),
+            os.path.join(BASE_DIR_STR, "data", name),
+            f"data/{name}",
+            name,
+            f"./{name}"
+        ])
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return None
 
 def get_nvda_features():
     df = None
@@ -40,16 +58,19 @@ def get_nvda_features():
         df = None
 
     if df is None or (hasattr(df, 'empty') and df.empty):
-        try:
-            for cache_path in [f"data/db_NVDA_1d_2y.csv", f"{DATA_DIR_STR}/db_NVDA_1d_2y.csv", "db_NVDA_1d_2y.csv"]:
-                if os.path.exists(cache_path):
-                    cdf = pd.read_csv(cache_path, index_col=0, parse_dates=True)
-                    if not cdf.empty and len(cdf) >= 20:
-                        df = cdf
-                        print(f"Local cache used: {cache_path} ({len(df)} rows)")
-                        break
-        except Exception as e:
-            print(f"Cache fallback failed: {e}")
+        # try local csv from root or data/
+        csv_path = find_file(["db_NVDA_1d_2y.csv", "db_NVDA_1d_2y.csv"])
+        if not csv_path:
+            # also try the names you uploaded
+            csv_path = find_file(["db_NVDA_1d_2y.csv"])
+        if csv_path:
+            try:
+                cdf = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+                if not cdf.empty and len(cdf) >= 20:
+                    df = cdf
+                    print(f"Local cache used: {csv_path} ({len(df)} rows)")
+            except Exception as e:
+                print(f"Cache fallback failed: {e}")
 
     finnhub_price = None
     try:
@@ -119,11 +140,20 @@ def get_nvda_features():
         }
     
     try:
-        with open(os.path.join(DATA_DIR_STR, "NVDA_model.pkl"), "rb") as f:
+        model_path = find_file(["NVDA_model.pkl"])
+        scaler_path = find_file(["NVDA_scaler.pkl"])
+        features_path = find_file(["NVDA_features.json"])
+        
+        if not model_path or not scaler_path or not features_path:
+            raise FileNotFoundError(f"Model files not found. model={model_path} scaler={scaler_path} features={features_path} cwd={os.listdir('.')} data_exists={os.path.exists('data')}")
+
+        print(f"Model files found: {model_path}, {scaler_path}, {features_path}")
+
+        with open(model_path, "rb") as f:
             model = pickle.load(f)
-        with open(os.path.join(DATA_DIR_STR, "NVDA_scaler.pkl"), "rb") as f:
+        with open(scaler_path, "rb") as f:
             scaler = pickle.load(f)
-        with open(os.path.join(DATA_DIR_STR, "NVDA_features.json"), "r") as f:
+        with open(features_path, "r") as f:
             feature_cols = json.load(f)
         
         X = np.array([[last[col] for col in feature_cols]])
@@ -178,7 +208,7 @@ def main():
         "live": {"ticker": "NVDA", "price": result["price"], "rsi": result["rsi"], "ma20": result["ma20"], "ma50": result["ma50"], "time": baku_time.strftime("%H:%M:%S"), "model": result["model"]},
         "last_update": baku_time.strftime("%d.%m.%Y %H:%M:%S")
     }
-    for p in [os.path.join(DATA_DIR_STR, "predictions.json"), "data/predictions.json"]:
+    for p in [os.path.join(DATA_DIR_STR, "predictions.json"), "data/predictions.json", "predictions.json"]:
         try:
             os.makedirs(os.path.dirname(p) if os.path.dirname(p) else ".", exist_ok=True)
             with open(p, "w", encoding="utf-8") as f:
