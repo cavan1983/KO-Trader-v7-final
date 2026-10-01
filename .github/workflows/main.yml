@@ -2,8 +2,8 @@ name: KO Trader V8 MACRO + FRED
 
 on:
   schedule:
-    - cron: '*/30 13-20 * * 1-5' # Hər 30 dəq - 17:30-00:00 Bakı / 9:30-16:00 ET
-  workflow_dispatch:
+    - cron: '0,30 14-21 * * 1-5'  # Hər 30 dəq, 14-21 UTC = 18:00-01:00 Bakı, yalnız həftə içi
+  workflow_dispatch: # manual run üçün
 
 concurrency:
   group: ko-trader
