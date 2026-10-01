@@ -1,108 +1,59 @@
-"""Lightweight backtesting framework for model validation.
-
-Goal: Sınaqda modelin keçmişdə necə işlədiyi görülsün.
-Virtual 10k portfolyo kimi, hər al/sat-ı simulyasiya et.
-"""
-
-from __future__ import annotations
 import pandas as pd
 import yfinance as yf
-from config import BACKTEST_DAYS
-from risk_management import get_trade_risk_levels
 
-
-def run_backtest(symbol: str = "KO", days: int = BACKTEST_DAYS, initial_cash: float = 10000.0) -> dict:
-    """Keçmiş veriler üzərində strategiyanı sınaqla.
-    
-    Returns: {trades, win_rate, total_return_pct, max_drawdown_pct, final_value}
-    """
-    df = yf.download(symbol, period=f"{days}d", interval="1d", progress=False, auto_adjust=True, threads=False)
+def audit_model_accuracy(ticker: str = "KO", lookback_days: int = 90) -> dict:
+    # FIX: SMA50 üçün kifayət qədər data yüklə
+    df = yf.download(ticker, period=f"{lookback_days+80}d", interval="1d", progress=False, auto_adjust=True, threads=False)
     if df is None or df.empty:
-        return {"symbol": symbol, "trades": 0, "win_rate": 0.0, "total_return_pct": 0.0, "max_drawdown_pct": 0.0, "final_value": initial_cash}
-
+        return {"error": "No data"}
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df.dropna().sort_index().copy()
 
-    # Sadə SMA/RSI əsaslı siqnal
-    df["SMA20"] = df["Close"].rolling(20).mean()
-    df["SMA50"] = df["Close"].rolling(50).mean()
+    df["SMA20"] = df["Close"].rolling(20, min_periods=20).mean()
+    df["SMA50"] = df["Close"].rolling(50, min_periods=50).mean()
     delta = df["Close"].diff()
-    gain = delta.where(delta > 0, 0).rolling(14).mean()
-    loss = -delta.where(delta < 0, 0).rolling(14).mean()
+    gain = delta.where(delta > 0, 0).rolling(14, min_periods=14).mean()
+    loss = -delta.where(delta < 0, 0).rolling(14, min_periods=14).mean()
     rs = gain / loss.replace(0, 1e-6)
     df["RSI"] = 100 - (100 / (1 + rs))
+    
+    df = df.dropna(subset=["SMA20","SMA50","RSI"]).copy()
+    if len(df) > lookback_days:
+        df = df.iloc[-lookback_days:].copy()
 
-    # Siqnal: AL=qiymət SMA20 və SMA50-dən yuxarı + RSI>55, SAT=əksi
-    def get_signal(row):
-        close, sma20, sma50, rsi = row["Close"], row["SMA20"], row["SMA50"], row["RSI"]
-        if close > sma20 and close > sma50 and rsi > 55:
+    def get_signal(r):
+        if r["Close"] > r["SMA20"] and r["Close"] > r["SMA50"] and r["RSI"] > 55:
             return "AL"
-        if close < sma20 and close < sma50 and rsi < 45:
+        if r["Close"] < r["SMA20"] and r["Close"] < r["SMA50"] and r["RSI"] < 45:
             return "SAT"
         return "GÖZLƏ"
     df["signal"] = df.apply(get_signal, axis=1)
 
-    # Virtual portfolio: başlanğıc 10k
-    cash = initial_cash
-    position = 0.0
-    entry_price = 0.0
-    trades = []
-    equity_curve = [initial_cash]
-    peak_value = initial_cash
+    # FIX: gələcək return düz hesablanır
+    df["future_close"] = df["Close"].shift(-3)
+    df["future_ret"] = (df["future_close"] - df["Close"]) / df["Close"] * 100
+    eval_df = df.dropna(subset=["future_close"]).copy()
 
-    risk_cfg = get_trade_risk_levels()
-    sl = risk_cfg["stop_loss_pct"]
-    tp = risk_cfg["take_profit_pct"]
+    eval_df["correct"] = False
+    eval_df.loc[(eval_df["signal"]=="AL") & (eval_df["future_ret"]>0.5), "correct"] = True
+    eval_df.loc[(eval_df["signal"]=="SAT") & (eval_df["future_ret"]<-0.5), "correct"] = True
 
-    for _, row in df.iterrows():
-        signal, close = row["signal"], float(row["Close"])
+    signals = eval_df[eval_df["signal"]!="GÖZLƏ"]
+    if len(signals)==0:
+        return {"signals_generated":0, "accuracy_pct":0, "status":"Siqnal yoxdur"}
 
-        # AL: satın al (25% risk ilə)
-        if position == 0 and signal == "AL":
-            max_shares = min((cash * 0.25) / close, 1000)
-            if max_shares > 0:
-                position = max_shares
-                entry_price = close
-                cash = 0.0
-                trades.append({"entry": close, "signal": signal})
-        # SAT: sat (SL/TP/signal)
-        elif position > 0:
-            change = ((close - entry_price) / entry_price) * 100.0
-            should_exit = change <= -sl or change >= tp or signal == "SAT"
-            if should_exit:
-                cash = position * close
-                if trades:
-                    trades[-1]["exit"] = close
-                    trades[-1]["pnl_pct"] = change
-                position = 0.0
-
-        # Portfolio dəyəri
-        current_value = (position * close) if position > 0 else cash
-        equity_curve.append(current_value)
-        peak_value = max(peak_value, current_value)
-
-    final_value = equity_curve[-1]
-    closed_trades = [t for t in trades if "exit" in t]
-    wins = sum(1 for t in closed_trades if t.get("pnl_pct", 0) > 0)
-    win_rate = (wins / len(closed_trades)) * 100 if closed_trades else 0.0
-    total_return = ((final_value - initial_cash) / initial_cash) * 100
-
-    max_dd = 0.0
-    peak = initial_cash
-    for v in equity_curve:
-        peak = max(peak, v)
-        dd = ((peak - v) / peak) * 100 if peak > 0 else 0
-        max_dd = max(max_dd, dd)
-
+    accuracy = signals["correct"].mean()*100
+    al = signals[signals["signal"]=="AL"]
+    sat = signals[signals["signal"]=="SAT"]
+    
     return {
-        "symbol": symbol,
-        "period_days": days,
-        "trades_closed": len(closed_trades),
-        "win_rate_pct": round(win_rate, 2),
-        "total_return_pct": round(total_return, 2),
-        "max_drawdown_pct": round(max_dd, 2),
-        "final_value": round(final_value, 2),
-        "initial_value": initial_cash,
-        "status": "✅ Model işləyir" if total_return > 5 else "⚠️ Model xətli"
+        "ticker": ticker,
+        "signals_generated": len(signals),
+        "accuracy_pct": round(accuracy,2),
+        "precision_al_pct": round(al["correct"].mean()*100,2) if len(al)>0 else 0,
+        "precision_sat_pct": round(sat["correct"].mean()*100,2) if len(sat)>0 else 0,
+        "total_correct": int(signals["correct"].sum()),
+        "false_positives": int(len(signals)-signals["correct"].sum()),
+        "status": "✅ Good" if accuracy>55 else "⚠ Needs improvement"
     }
