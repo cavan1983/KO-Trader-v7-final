@@ -1,60 +1,146 @@
 {
   "KO": {
     "1s": {
-      "signal": "AL",
-      "conf": 60.611011342263154,
-      "price": 86.24,
+      "signal": "GÖZLƏ",
+      "conf": 82.63460378879513,
+      "price": 86.18,
       "open": 86.12,
-      "rsi": 60.3,
-      "ma20": 84.52,
-      "ma50": 82.79,
-      "al_pct": 60.6,
-      "sat_pct": 11.8,
-      "gozle_pct": 27.6
+      "rsi": 54.2,
+      "ma20": 84.46,
+      "ma50": 82.73,
+      "al_pct": 8.7,
+      "sat_pct": 8.7,
+      "gozle_pct": 82.6
     },
     "1g": {
-      "signal": "GÖZLƏ",
-      "conf": 53.91919235463193,
-      "price": 86.24,
+      "signal": "AL",
+      "conf": 36.17543002827007,
+      "price": 86.18,
       "open": 86.12,
-      "rsi": 48.5,
-      "ma20": 84.52,
-      "ma50": 82.79,
-      "al_pct": 23.0,
-      "sat_pct": 23.0,
-      "gozle_pct": 53.9
+      "rsi": 61.5,
+      "ma20": 84.46,
+      "ma50": 82.73,
+      "al_pct": 36.2,
+      "sat_pct": 19.1,
+      "gozle_pct": 44.7
     },
     "3g": {
-      "signal": "AL",
-      "conf": 51.00979922091146,
-      "price": 86.24,
+      "signal": "GÖZLƏ",
+      "conf": 47.51684692701074,
+      "price": 86.18,
       "open": 86.12,
-      "rsi": 61.8,
-      "ma20": 84.52,
-      "ma50": 82.79,
-      "al_pct": 51.0,
-      "sat_pct": 14.7,
-      "gozle_pct": 34.3
+      "rsi": 52.1,
+      "ma20": 84.46,
+      "ma50": 82.73,
+      "al_pct": 26.2,
+      "sat_pct": 26.2,
+      "gozle_pct": 47.5
     },
     "5g": {
-      "signal": "AL",
-      "conf": 51.97613361638398,
-      "price": 86.24,
+      "signal": "GÖZLƏ",
+      "conf": 48.85089249415252,
+      "price": 86.18,
       "open": 86.12,
-      "rsi": 56.9,
-      "ma20": 84.52,
-      "ma50": 82.79,
-      "al_pct": 52.0,
-      "sat_pct": 14.4,
-      "gozle_pct": 33.6
+      "rsi": 49.2,
+      "ma20": 84.46,
+      "ma50": 82.73,
+      "al_pct": 25.6,
+      "sat_pct": 25.6,
+      "gozle_pct": 48.9
     }
   },
+  "live": {
+    "ticker": "KO",
+    "price": 86.18,
+    "open": 86.12,
+    "entry": 87.18,
+    "change": -0.28,
+    "change_pct": -0.32,
+    "source": "Real-time • Yahoo Finance • CANLI",
+    "time": "20:50:31",
+    "market_status": "AÇIQ",
+    "baku_time": "23:50:26",
+    "ny_time": "15:50:26",
+    "connection": "0s 09d 34s"
+  },
   "macro": {
-    "time": "2026-10-01T16:20:35.301722"
+    "time": "2026-10-01T16:20:35.301722",
+    "SPY": {
+      "close": 761.93,
+      "open": 763.65,
+      "change_pct": -0.0918
+    },
+    "XLP": {
+      "close": 80.4,
+      "open": 80.515,
+      "change_pct": -0.2481
+    },
+    "^VIX": {
+      "close": 16.17,
+      "change_pct": 0.0
+    },
+    "^TNX": {
+      "close": 5.27,
+      "change_pct": 0.0
+    }
   },
   "macro_data": {
-    "time": "2026-10-01T16:20:35.301722"
+    "time": "2026-10-01T16:20:35.301722",
+    "SPY": {
+      "close": 761.93,
+      "open": 763.65,
+      "change_pct": -0.0918
+    },
+    "XLP": {
+      "close": 80.4,
+      "open": 80.515,
+      "change_pct": -0.2481
+    },
+    "^VIX": {
+      "close": 16.17,
+      "change_pct": 0.0
+    },
+    "^TNX": {
+      "close": 5.27,
+      "change_pct": 0.0
+    }
   },
-  "spy_price": 0,
-  "vix_price": 0
+  "spy_price": 761.93,
+  "vix_price": 16.17,
+  "fred": {
+    "time": "2026-09-28T14:45:02.951984",
+    "fed_funds": 3.88,
+    "cpi": 334.131,
+    "cpi_yoy": 1.3179999999999836,
+    "unrate": 4.1,
+    "t10y2y": 0.36,
+    "CPI": {
+      "value": 334.131,
+      "change": 1.3179999999999836
+    },
+    "UNRATE": {
+      "value": 4.1,
+      "change": 0.0
+    },
+    "FEDFUNDS": {
+      "value": 3.88,
+      "change": 0.0
+    },
+    "T10Y2Y": {
+      "value": 0.36,
+      "change": 0.04999999999999999
+    }
+  },
+  "extra": {
+    "earnings_days_left": 27,
+    "earnings_date": "2026-10-27",
+    "insider_score": -36,
+    "insider_total": 100,
+    "last_update": "01.10.2026 20:50:31",
+    "last_update_full": "Canlı - 01.10.2026 20:50:31",
+    "market_status": "AÇIQ",
+    "status_text": "Açıq"
+  },
+  "market_status": "AÇIQ",
+  "last_update": "01.10.2026 20:50:31"
 }
