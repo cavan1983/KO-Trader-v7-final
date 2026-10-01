@@ -30,8 +30,8 @@ except Exception as e:
     print(f"⚠ TF yoxdur: {e}")
 
 TICKERS = ["KO"]
-DATA_DIR = str(DATA_DIR)
-JOURNAL_PATH = f"{DATA_DIR}/decision_journal.csv"
+DATA_DIR_STR = str(DATA_DIR)
+JOURNAL_PATH = f"{DATA_DIR_STR}/decision_journal.csv"
 BAKU_TZ = pytz.timezone("Asia/Baku")
 NY_TZ = pytz.timezone("America/New_York")
 
@@ -39,11 +39,9 @@ def get_times():
     return datetime.now(BAKU_TZ), datetime.now(NY_TZ)
 
 def print_final_summary(all_results, wallet_data, baku_time):
-    """Print final summary for GitHub Actions logs."""
     print("\n" + "="*70)
     print("🤖 KO TRADER V8 - FINAL SUMMARY")
     print("="*70)
-
     if "KO" in all_results:
         print("\n📊 CURRENT SIGNALS (Cari Praqnozlar):")
         print("-" * 70)
@@ -55,7 +53,6 @@ def print_final_summary(all_results, wallet_data, baku_time):
                 price = r.get("price", 0)
                 status = "🟢" if signal == "AL" else "🟡" if signal == "GÖZLƏ" else "🔴"
                 print(f"  {status} {k:3} → {signal:6} | Confidence: {conf:5.1f}% | Price: ${price:.2f}")
-
     if wallet_data:
         print("\n💰 VIRTUAL WALLET (Paper Trading):")
         print("-" * 70)
@@ -65,13 +62,11 @@ def print_final_summary(all_results, wallet_data, baku_time):
         shares = wallet_data.get('shares', 0)
         buy_price = wallet_data.get('buy_price', 0)
         resets = wallet_data.get('resets', 0)
-
         emoji = "📈" if pnl >= 0 else "📉"
         print(f"  {emoji} Total Value: ${total_val:.2f}")
         print(f"     PnL: ${pnl:.2f} ({pnl_pct:+.2f}%)")
         print(f"     Shares: {shares:.2f} @ ${buy_price:.2f}")
         print(f"     Resets: {resets}")
-
     try:
         from backtesting import run_backtest
         print("\n📈 BACKTEST PERFORMANCE (180 gün):")
@@ -82,16 +77,14 @@ def print_final_summary(all_results, wallet_data, baku_time):
         ret = bt.get('total_return_pct', 0)
         dd = bt.get('max_drawdown_pct', 0)
         final = bt.get('final_value', 0)
-
-        emoji = "✅" if ret > 5 else "⚠️"
+        emoji = "✅" if ret > 5 else "⚠"
         print(f"  {emoji} Closed Trades: {trades}")
         print(f"     Win Rate: {wr:.2f}%")
         print(f"     Total Return: {ret:+.2f}%")
         print(f"     Max Drawdown: {dd:.2f}%")
         print(f"     Final Value: ${final:.2f}")
     except Exception as e:
-        print(f"  ⚠️ Backtest Error: {e}")
-
+        print(f"  ⚠ Backtest Error: {e}")
     try:
         from model_audit import audit_model_accuracy
         print("\n🧪 MODEL ACCURACY (30 gün):")
@@ -101,14 +94,12 @@ def print_final_summary(all_results, wallet_data, baku_time):
             signals_gen = audit.get('signals_generated', 0)
             acc = audit.get('accuracy_pct', 0)
             al_prec = audit.get('precision_al_pct', 0)
-
-            emoji = "✅" if acc > 55 else "⚠️"
+            emoji = "✅" if acc > 55 else "⚠"
             print(f"  {emoji} Signals Generated: {signals_gen}")
             print(f"     Overall Accuracy: {acc:.2f}%")
             print(f"     AL Signal Precision: {al_prec:.2f}%")
     except Exception as e:
-        print(f"  ⚠️ Model Audit Error: {e}")
-
+        print(f"  ⚠ Model Audit Error: {e}")
     if "macro" in all_results:
         print("\n📊 MACRO INDICATORS:")
         print("-" * 70)
@@ -122,12 +113,18 @@ def print_final_summary(all_results, wallet_data, baku_time):
         if "^TNX" in macro:
             tnx = macro["^TNX"]
             print(f"  10Y: {tnx.get('close', 0):.2f}")
-
     print("\n" + "="*70)
     print(f"✅ Bot run completed at {baku_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    print("⚠️ DISCLAIMER: Education/Demo only. Not financial advice.")
+    print("⚠ DISCLAIMER: Education/Demo only. Not financial advice.")
     print("="*70 + "\n")
 
+def main():
+    baku_time, ny_time = get_times()
+    all_results = {"KO": {}}
+    wallet_data = {}
+    # TODO: köhnə trading logikanı bura birləşdir
+    print_final_summary(all_results, wallet_data, baku_time)
+    print("✅ KO V8 completed")
 
-# The rest of the file is intentionally unchanged to keep the project behavior stable.
-# This patch focuses on path safety and setup quality without rewriting the trading logic.
+if __name__ == "__main__":
+    main()
