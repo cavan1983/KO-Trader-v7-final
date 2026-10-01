@@ -8,22 +8,28 @@ DATA_DIR = BASE_DIR / "data"
 LOG_DIR = BASE_DIR / "logs"
 ENV_PATH = BASE_DIR / ".env"
 
-# Load environment variables from .env if present.
 load_dotenv(ENV_PATH, override=False)
 
 def ensure_runtime_dirs() -> None:
-    """Create runtime folders required by the bot."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 def get_env(name: str, default: str | None = None) -> str | None:
-    """Small wrapper to read environment values consistently."""
     return os.getenv(name, default)
 
-# === FIX: Əskik olan sabitlər - backtesting və model üçün ===
+# === FIX: Bütün əskik sabitlər ===
 BACKTEST_DAYS = 180
 BACKTEST_INITIAL_CASH = 10000.0
 MODEL_TTL_HOURS = 0.75
-
-# Əlavə uyğunluq üçün
 TICKERS = ["KO"]
+
+# Backtesting və signal üçün lazım olanlar
+SIGNAL_CONFIDENCE_MIN = 50.0
+SIGNAL_CONFIDENCE_AL = 55.0
+SIGNAL_CONFIDENCE_SAT = 45.0
+CONFIDENCE_THRESHOLD = 55.0
+
+# Risk və trading
+STOP_LOSS_PCT = 5.0
+TAKE_PROFIT_PCT = 8.0
+POSITION_SIZE = 0.2
