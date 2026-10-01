@@ -1,24 +1,24 @@
 {
   "KO": {
     "1s": {
-      "signal": "G\u00d6ZL\u018f",
-      "conf": 50.0,
-      "price": 70.0
+      "signal": "AL",
+      "conf": 62.739773276121106,
+      "price": 86.49
     },
     "1g": {
-      "signal": "G\u00d6ZL\u018f",
-      "conf": 50.0,
-      "price": 70.0
+      "signal": "AL",
+      "conf": 57.97361229764247,
+      "price": 86.49
     },
     "3g": {
-      "signal": "G\u00d6ZL\u018f",
-      "conf": 50.0,
-      "price": 70.0
+      "signal": "AL",
+      "conf": 55.42894135119418,
+      "price": 86.49
     },
     "5g": {
       "signal": "G\u00d6ZL\u018f",
-      "conf": 50.0,
-      "price": 70.0
+      "conf": 50.088773534488034,
+      "price": 86.49
     }
   },
   "macro": {
