@@ -2,29 +2,26 @@
   "KO": {
     "1s": {
       "signal": "G\u00d6ZL\u018f",
-      "conf": 50,
-      "price": 0,
-      "last": 0
+      "conf": 50.0,
+      "price": 70.0
     },
     "1g": {
       "signal": "G\u00d6ZL\u018f",
-      "conf": 50,
-      "price": 0,
-      "last": 0
+      "conf": 50.0,
+      "price": 70.0
     },
     "3g": {
       "signal": "G\u00d6ZL\u018f",
-      "conf": 50,
-      "price": 0,
-      "last": 0
+      "conf": 50.0,
+      "price": 70.0
     },
     "5g": {
       "signal": "G\u00d6ZL\u018f",
-      "conf": 50,
-      "price": 0,
-      "last": 0
+      "conf": 50.0,
+      "price": 70.0
     }
   },
-  "updated": "2026-10-01 00:04:31.458526+04:00",
-  "market_open": false
+  "macro": {
+    "time": "2026-10-01T15:13:09.430451"
+  }
 }
