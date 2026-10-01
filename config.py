@@ -21,7 +21,7 @@ def get_env(name: str, default: str | None = None) -> str | None:
 BACKTEST_DAYS = 180
 BACKTEST_INITIAL_CASH = 10000.0
 MODEL_TTL_HOURS = 0.75
-TICKERS = ["KO"]
+TICKERS = ["NVDA"]
 
 # Signal confidence
 SIGNAL_CONFIDENCE_MIN = 50.0
