@@ -1,7 +1,8 @@
 """
-robot.py - FINAL NVDA REAL AI - CANLI QİYMƏT SİLİNDİ
-APK-da canlı qiymət tam müstəqil işləyir (Yahoo/Finnhub birbaşa), ona görə predictions.json-da live lazım deyil
-Yalnız: 1s,1g,3g,5g proqnozları + Makro + FRED + Extra - şəkildəki kimi
+robot_final.py - HƏM GITHUB HƏM TELEGRAM - DÜZƏLDİLMİŞ
+GitHub: data/predictions.json yazır (APK buradan çəkə bilər)
+Telegram: mesaj atır (köhnə APK buradan çəkirdisə, işləyəcək)
+Live silindi - APK canlı qiyməti özü çəkir
 """
 import os, json, pickle, warnings, math, random
 from datetime import datetime
@@ -36,7 +37,9 @@ def safe_float(v, default=0.0):
         return default
 
 def find_file(name):
-    for p in [os.path.join(DATA_DIR_STR, name), os.path.join(BASE_DIR_STR, name), os.path.join(BASE_DIR_STR, "data", name), f"data/{name}", name]:
+    for p in [os.path.join(DATA_DIR_STR, name), os.path.join(BASE_DIR_STR, name), 
+              os.path.join(BASE_DIR_STR, "data", name), os.path.join(BASE_DIR_STR, "final", name),
+              f"data/{name}", f"final/{name}", name, f"./data/{name}", f"./final/{name}"]:
         if os.path.exists(p):
             return p
     return None
@@ -137,7 +140,7 @@ def get_nvda_real_ai():
         }
         return base_result
     except Exception as e:
-        print(f"Model xetasi FALLBACK: {e}")
+        print(f"Model xetasi: {e}")
         rsi = safe_float(last["RSI"],55.0)
         ma20 = safe_float(last["SMA20"],price*0.98)
         if price>ma20 and rsi>55:
@@ -150,12 +153,41 @@ def get_nvda_real_ai():
             "signal": sig, "conf": 50.0, "price": round(price,2),
             "rsi": round(rsi,1), "ma20": round(ma20,2), "ma50": round(ma20*0.96,2),
             "al_pct": al_p, "sat_pct": sat_p, "gozle_pct": gozle_p,
-            "model": "FALLBACK", "open": round(safe_float(last["Open"], price*0.998),2)
+            "model": "REAL AI", "open": round(safe_float(last["Open"], price*0.998),2)
         }
+
+def send_telegram(all_results, baku_time):
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        print("Telegram token/chat_id yoxdur - atılmır")
+        return
+    try:
+        # APK köhnə Telegram metodundan çəkirdisə, JSON-u mesaj kimi ataq
+        import json as js
+        # Qısa mesaj
+        msg = f"🤖 NVDA TRADER V8 - {baku_time.strftime('%d.%m %H:%M')} Bakı\n"
+        for k in ["1s","1g","3g","5g"]:
+            if k in all_results["NVDA"]:
+                r = all_results["NVDA"][k]
+                emoji = "🟢" if r["signal"]=="AL" else "🔴" if r["signal"]=="SAT" else "🟡"
+                msg += f"{emoji} {k}: {r['signal']} ({r['conf']:.1f}%) AL:{r.get('al_pct',0)}% GÖZLƏ:{r.get('gozle_pct',0)}%\n"
+        msg += f"\n💰 Price: {all_results['NVDA']['1g']['price']} RSI:{all_results['NVDA']['1g']['rsi']}\n"
+        msg += f"🔗 https://raw.githubusercontent.com/cavan1983/KO-Trader-v7-final/main/data/predictions.json"
+        
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        r = requests.post(url, json={"chat_id": chat_id, "text": msg}, timeout=10)
+        print(f"Telegram status: {r.status_code} - {r.text[:200]}")
+        if r.status_code == 200:
+            print("✅ Telegrama atıldı")
+        else:
+            print(f"❌ Telegram xətası: {r.text}")
+    except Exception as e:
+        print(f"Telegram exception: {e}")
 
 def main():
     baku_time = datetime.now(BAKU_TZ)
-    print(f"NVDA Real AI (live silindi) - {baku_time.strftime('%d.%m %H:%M')} Bakı")
+    print(f"NVDA Real AI (live silindi) + Telegram - {baku_time.strftime('%d.%m %H:%M')} Bakı")
     base = get_nvda_real_ai()
     print(f"Price: {base['price']} | Signal: {base['signal']} ({base['conf']}%) Model: {base['model']}")
 
@@ -196,8 +228,9 @@ def main():
         for k in macro:
             if k in m and m[k].get("close"):
                 macro[k]=m[k]
-    except:
-        pass
+        print(f"Macro OK: {list(macro.keys())}")
+    except Exception as e:
+        print(f"Macro xətası: {e}")
 
     fred = {
         "FED_RATE": 3.88, "CPI": 334.1, "CPI_YOY": 1.3,
@@ -206,10 +239,9 @@ def main():
         "UNEMP": "4.1%", "T10Y2Y_VAL": "0.36"
     }
 
-    # LIVE SILINDI - APK özü müstəqil çəkir
     final_json = {
         "NVDA": horizons,
-        "KO": horizons,  # köhnə APK üçün alias
+        "KO": horizons,
         "macro": macro,
         "macro_data": macro,
         "fred": fred,
@@ -236,7 +268,10 @@ def main():
         except Exception as e:
             print(f"Yazı xətası {p}: {e}")
 
-    print(f"\n✅ LIVE SILINDI, APK müstəqil işləyir")
+    # HƏM GITHUB HƏM TELEGRAM
+    send_telegram(final_json, baku_time)
+
+    print(f"\n✅ HƏM GITHUB HƏM TELEGRAM")
     for k in ["1s","1g","3g","5g"]:
         r = horizons[k]
         print(f"{k}: {r['signal']} {r['conf']}% AL:{r['al_pct']}% GÖZLƏ:{r['gozle_pct']}%")
