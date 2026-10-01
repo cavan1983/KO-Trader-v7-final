@@ -91,7 +91,39 @@ def predict_signal_simple(ticker, tf_name):
                         al_p = conf if sig=="AL" else (100-conf)/3
                         sat_p = conf if sig=="SAT" else (100-conf)/3
                         gozle_p = 100 - al_p - sat_p
-                        return {"signal": sig, "conf": conf, "price": price, "open": open_price, "rsi": round(rsi,1), "ma20": round(ma20,2), "ma50": round(ma50,2), "al_pct": round(al_p,1), "sat_pct": round(sat_p,1), "gozle_pct": round(gozle_p,1)}
+                        return {
+                            "signal": sig,
+                            "conf": conf,
+                            "confidence": conf,
+                            "güven": conf,
+                            "Güvən": conf,
+                            "price": price,
+                            "open": open_price,
+                            "açılış": open_price,
+                            "rsi": round(rsi,1),
+                            "RSI": round(rsi,1),
+                            "ma20": round(ma20,2),
+                            "MA20": round(ma20,2),
+                            "ma50": round(ma50,2),
+                            # AL üçün bütün variantlar
+                            "al_pct": round(al_p,1),
+                            "AL": round(al_p,1),
+                            "al": round(al_p,1),
+                            "AL_PCT": round(al_p,1),
+                            # SAT üçün bütün variantlar
+                            "sat_pct": round(sat_p,1),
+                            "SAT": round(sat_p,1),
+                            "sat": round(sat_p,1),
+                            "SAT_PCT": round(sat_p,1),
+                            # GÖZLƏ üçün bütün variantlar
+                            "gozle_pct": round(gozle_p,1),
+                            "GÖZLƏ": round(gozle_p,1),
+                            "GOZLE": round(gozle_p,1),
+                            "gozle": round(gozle_p,1),
+                            "Gozle": round(gozle_p,1),
+                            "GOZLE_PCT": round(gozle_p,1),
+                            "gozle_percent": round(gozle_p,1)
+                        }
                 except:
                     pass
         conf_map = {"1s": 82.0, "1g": 36.2, "3g": 47.8, "5g": 50.2}
@@ -103,10 +135,45 @@ def predict_signal_simple(ticker, tf_name):
             sig="GÖZLƏ"; gozle_p=base; al_p=(100-base)/2; sat_p=(100-base)/2
         else:
             sig="GÖZLƏ"; gozle_p=base; al_p=(100-base)/2; sat_p=(100-base)/2
-        return {"signal": sig, "conf": base, "price": price, "open": open_price, "rsi": round(rsi,1), "ma20": round(ma20,2), "ma50": round(ma50,2), "al_pct": round(al_p,1), "sat_pct": round(sat_p,1), "gozle_pct": round(gozle_p,1)}
+        return {
+            "signal": sig,
+            "conf": base,
+            "confidence": base,
+            "güven": base,
+            "Güvən": base,
+            "price": price,
+            "open": open_price,
+            "açılış": open_price,
+            "rsi": round(rsi,1),
+            "RSI": round(rsi,1),
+            "ma20": round(ma20,2),
+            "MA20": round(ma20,2),
+            "ma50": round(ma50,2),
+            "al_pct": round(al_p,1),
+            "AL": round(al_p,1),
+            "al": round(al_p,1),
+            "AL_PCT": round(al_p,1),
+            "sat_pct": round(sat_p,1),
+            "SAT": round(sat_p,1),
+            "sat": round(sat_p,1),
+            "SAT_PCT": round(sat_p,1),
+            "gozle_pct": round(gozle_p,1),
+            "GÖZLƏ": round(gozle_p,1),
+            "GOZLE": round(gozle_p,1),
+            "gozle": round(gozle_p,1),
+            "Gozle": round(gozle_p,1),
+            "GOZLE_PCT": round(gozle_p,1),
+            "gozle_percent": round(gozle_p,1)
+        }
     except Exception as e:
         traceback.print_exc()
-        return {"signal": "GÖZLƏ", "conf": 82.0, "price": 87.11, "open": 87.15, "rsi": 38.0, "ma20": 87.47, "ma50": 86.5, "al_pct": 9.0, "sat_pct": 9.0, "gozle_pct": 82.0}
+        return {
+            "signal": "GÖZLƏ", "conf": 82.0, "confidence": 82.0, "Güvən": 82.0,
+            "price": 87.11, "open": 87.15, "rsi": 38.0, "RSI": 38.0, "ma20": 87.47, "MA20": 87.47,
+            "al_pct": 9.0, "AL": 9.0, "al": 9.0,
+            "sat_pct": 9.0, "SAT": 9.0, "sat": 9.0,
+            "gozle_pct": 82.0, "GÖZLƏ": 82.0, "GOZLE": 82.0, "gozle": 82.0
+        }
 
 def send_telegram(all_results, baku_time):
     token = os.getenv("TELEGRAM_BOT_TOKEN")
