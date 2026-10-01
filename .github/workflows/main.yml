@@ -2,11 +2,12 @@ name: KO Trader V8 MACRO + FRED
 
 on:
   schedule:
-    # NY Market: 9:30 - 16:00 ET = 13:30 - 20:00 UTC
-    # Həftə içi (1-5) hər 30 dəq
-    - cron: '30 13 * * 1-5'      # 9:30 ET
-    - cron: '0,30 14-19 * * 1-5' # 10:00-15:00 ET
-    - cron: '0 20 * * 1-5'       # 16:00 ET (close)
+    # Bakı: 17:30 - 00:00 (Qış) / 16:30 - 23:00 (Yay)
+    # UTC:  13:30 - 20:00 (həmişə sabit)
+    # NY:   9:30 - 16:00 (həmişə sabit)
+    - cron: '30 13 * * 1-5'      # 17:30 Bakı / 13:30 UTC / 9:30 ET
+    - cron: '0,30 14-19 * * 1-5' # 18:00-23:30 Bakı / 14:00-19:30 UTC / 10:00-15:30 ET
+    - cron: '0 20 * * 1-5'       # 00:00 Bakı (sonrakı gün) / 20:00 UTC / 16:00 ET
   workflow_dispatch:
 
 concurrency:
@@ -70,16 +71,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add all data files
           git add data/*.json data/*.csv 2>/dev/null || true
           
-          # Check if there are changes
           if git diff --cached --quiet; then
             echo "ℹ️ No changes to commit"
             exit 0
           fi
           
-          # Commit and push
           git commit -m "🤖 V8 auto-update: $(date -u +'%Y-%m-%d %H:%M UTC')" || exit 1
           git push origin main || {
             echo "⚠️ Push failed, trying pull --rebase..."
