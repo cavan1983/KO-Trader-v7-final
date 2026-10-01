@@ -17,19 +17,30 @@ def ensure_runtime_dirs() -> None:
 def get_env(name: str, default: str | None = None) -> str | None:
     return os.getenv(name, default)
 
-# === FIX: Bütün əskik sabitlər ===
+# === FIX: Bütün əskik sabitlər - backtesting, risk_management, model üçün ===
 BACKTEST_DAYS = 180
 BACKTEST_INITIAL_CASH = 10000.0
 MODEL_TTL_HOURS = 0.75
 TICKERS = ["KO"]
 
-# Backtesting və signal üçün lazım olanlar
+# Signal confidence
 SIGNAL_CONFIDENCE_MIN = 50.0
 SIGNAL_CONFIDENCE_AL = 55.0
 SIGNAL_CONFIDENCE_SAT = 45.0
 CONFIDENCE_THRESHOLD = 55.0
 
-# Risk və trading
+# Risk / Position - sənin xətan burda idi
+MAX_POSITION_RATIO = 0.2
+POSITION_SIZE = 0.2
+POSITION_RATIO = 0.2
+MAX_POSITION_SIZE = 0.2
 STOP_LOSS_PCT = 5.0
 TAKE_PROFIT_PCT = 8.0
-POSITION_SIZE = 0.2
+STOP_LOSS = 5.0
+TAKE_PROFIT = 8.0
+RISK_PER_TRADE = 0.02
+
+# Trading
+INITIAL_CASH = 10000.0
+COMMISSION = 0.001
+SLIPPAGE = 0.001
