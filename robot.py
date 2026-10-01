@@ -79,6 +79,41 @@ def predict_signal_simple(ticker, tf_name):
         print(f"⚠ predict error {tf_name}: {e}")
         return {"signal": "GÖZLƏ", "conf": 50.0, "price": 70.0}
 
+
+def send_telegram(all_results, baku_time):
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        print("⚠ Telegram secrets yoxdur, skip")
+        return
+    
+    try:
+        msg = f"🤖 KO TRADER V8 - {baku_time.strftime('%d.%m %H:%M')} Bakı\n"
+        msg += "─"*30 + "\n"
+        if "KO" in all_results:
+            for k in ["1s","1g","3g","5g"]:
+                if k in all_results["KO"]:
+                    r = all_results["KO"][k]
+                    emoji = "🟢" if r["signal"]=="AL" else "🔴" if r["signal"]=="SAT" else "🟡"
+                    msg += f"{emoji} {k}: {r['signal']} ({r['conf']:.1f}%) ${r['price']:.2f}\n"
+        if "macro" in all_results:
+            macro = all_results["macro"]
+            if "SPY" in macro:
+                msg += f"\nSPY: ${macro['SPY'].get('close',0):.2f}\n"
+            if "^VIX" in macro:
+                msg += f"VIX: {macro['^VIX'].get('close',0):.2f}\n"
+        msg += "\n⚠ Təhsil üçündür, maliyyə məsləhəti deyil."
+
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        resp = requests.post(url, json={"chat_id": chat_id, "text": msg})
+        if resp.status_code == 200:
+            print("✅ Telegram göndərildi")
+        else:
+            print(f"⚠ Telegram xətası: {resp.text}")
+    except Exception as e:
+        print(f"⚠ Telegram error: {e}")
+
+
 def print_final_summary(all_results, wallet_data, baku_time):
     print("\n" + "="*70)
     print("🤖 KO TRADER V8 - FINAL SUMMARY")
@@ -185,11 +220,18 @@ def main():
         "resets": 0
     }
 
-    # predictions.json yaz
-    pred_path = os.path.join(DATA_DIR_STR, "predictions.json")
-    with open(pred_path, "w") as f:
-        json.dump(all_results, f, indent=2)
-    print(f"💾 predictions.json yazıldı: {pred_path}")
+    # predictions.json yaz - həm data/ həm root üçün APK uyğunluğu
+    for p in [os.path.join(DATA_DIR_STR, "predictions.json"), "data/predictions.json", "predictions.json"]:
+        try:
+            os.makedirs(os.path.dirname(p) if os.path.dirname(p) else ".", exist_ok=True)
+            with open(p, "w") as f:
+                json.dump(all_results, f, indent=2)
+            print(f"💾 predictions.json yazıldı: {p}")
+        except Exception as e:
+            print(f"⚠ Yazı xətası {p}: {e}")
+
+    # Telegram-a göndər
+    send_telegram(all_results, baku_time)
 
     print_final_summary(all_results, wallet_data, baku_time)
     print("✅ KO V8 completed")
