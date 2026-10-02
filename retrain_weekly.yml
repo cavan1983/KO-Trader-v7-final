@@ -1,0 +1,70 @@
+name: NVDA Real Learning - Weekly Retrain
+
+on:
+  schedule:
+    # Hər bazar günü gecə 02:00 Bakı vaxtı (22:00 UTC şənbə)
+    - cron: '0 22 * * 6'
+  workflow_dispatch: # Əl ilə işə salmaq üçün
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Repo-nu çək
+      uses: actions/checkout@v4
+      
+    - name: Python qur
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: Asılılıqları qur
+      run: |
+        python -m pip install --upgrade pip
+        pip install yfinance pandas numpy scikit-learn requests pytz python-dotenv
+        
+    - name: NVDA REAL LEARNING - Modelləri yenidən öyrət
+      env:
+        FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        echo "🧠 REAL LEARNING başlayır..."
+        python train_nvda_REAL_LEARNING.py
+        
+    - name: Yeni modelləri yoxla
+      run: |
+        ls -lh data/final/NVDA_*.pkl || ls -lh final/NVDA_*.pkl || echo "Model tapılmadı"
+        cat data/final/training_summary.json || echo "Summary yoxdur"
+        
+    - name: Modelləri və nəticələri commit et
+      run: |
+        git config --local user.email "ai-learning@nvda-trader.com"
+        git config --local user.name "NVDA Real Learning AI"
+        
+        # Modelləri əlavə et
+        git add data/final/NVDA_*.pkl data/final/NVDA_*.json data/final/training_summary.json || true
+        git add final/NVDA_*.pkl || true
+        git add data/final/ || true
+        
+        # Dəyişiklik var?
+        if git diff --staged --quiet; then
+          echo "Dəyişiklik yoxdur"
+        else
+          DATE=$(date +"%d.%m.%Y %H:%M")
+          git commit -m "🧠 REAL LEARNING - $DATE - Modellər yeniləndi - NVDA ONLY"
+          git push
+          echo "✅ Modellər GitHub-a push edildi"
+        fi
+        
+    - name: Telegrama bildir
+      if: success()
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d text="🧠 NVDA REAL LEARNING tamamlandı! Modellər yeniləndi - $(date +'%d.%m.%Y %H:%M') Bakı - YALNIZ NVDA" || true
