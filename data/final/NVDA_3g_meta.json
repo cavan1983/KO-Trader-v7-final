@@ -1,0 +1,33 @@
+{
+  "horizon": "3g",
+  "horizon_days": 15,
+  "train_date": "2026-10-02 06:05",
+  "train_size": 551,
+  "test_size": 138,
+  "accuracy": 0.2826086956521739,
+  "feature_count": 17,
+  "top_features": [
+    {
+      "name": "ATR",
+      "importance": 0.12253587256996216
+    },
+    {
+      "name": "SMA50",
+      "importance": 0.10534870356713638
+    },
+    {
+      "name": "SMA20",
+      "importance": 0.08394403394649855
+    },
+    {
+      "name": "SMA20_vs_SMA50",
+      "importance": 0.069101892701823
+    },
+    {
+      "name": "BB_width",
+      "importance": 0.06818692282363116
+    }
+  ],
+  "model_type": "RandomForest_REAL_LEARNING",
+  "version": "V8_REAL_LEARNING"
+}
