@@ -1,7 +1,7 @@
 {
   "horizon": "5g",
   "horizon_days": 25,
-  "train_date": "2026-10-02 06:05",
+  "train_date": "2026-10-02 06:10",
   "train_size": 543,
   "test_size": 136,
   "accuracy": 0.3602941176470588,
