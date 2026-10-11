@@ -1,26 +1,26 @@
 {
-  "train_date": "2026-10-04 04:27:21",
-  "baku_time": "04.10.2026 04:27",
+  "train_date": "2026-10-11 04:36:28",
+  "baku_time": "11.10.2026 04:36",
   "horizons_trained": 4,
   "results": [
     {
       "horizon": "1s",
-      "accuracy": 0.6524822695035462,
+      "accuracy": 0.6312056737588653,
       "model_path": "data/final/NVDA_1s.pkl"
     },
     {
       "horizon": "1g",
-      "accuracy": 0.37142857142857144,
+      "accuracy": 0.35,
       "model_path": "data/final/NVDA_1g.pkl"
     },
     {
       "horizon": "3g",
-      "accuracy": 0.26811594202898553,
+      "accuracy": 0.2898550724637681,
       "model_path": "data/final/NVDA_3g.pkl"
     },
     {
       "horizon": "5g",
-      "accuracy": 0.35294117647058826,
+      "accuracy": 0.34558823529411764,
       "model_path": "data/final/NVDA_5g.pkl"
     }
   ],
