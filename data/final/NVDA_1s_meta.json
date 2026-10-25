@@ -1,7 +1,7 @@
 {
   "horizon": "1s",
   "horizon_days": 1,
-  "train_date": "2026-10-25 03:54",
+  "train_date": "2026-10-25 04:10",
   "train_size": 562,
   "test_size": 141,
   "accuracy": 0.7092198581560284,
