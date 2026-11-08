@@ -1,31 +1,31 @@
 {
   "horizon": "5g",
   "horizon_days": 25,
-  "train_date": "2026-11-01 04:54",
+  "train_date": "2026-11-08 04:59",
   "train_size": 543,
   "test_size": 136,
-  "accuracy": 0.34558823529411764,
+  "accuracy": 0.36764705882352944,
   "feature_count": 17,
   "top_features": [
     {
       "name": "SMA50",
-      "importance": 0.13658473331436458
+      "importance": 0.136935944391449
     },
     {
       "name": "ATR",
-      "importance": 0.10227265573183615
+      "importance": 0.09932560510631022
     },
     {
       "name": "SMA20",
-      "importance": 0.09424366398523668
+      "importance": 0.0931730770302216
     },
     {
       "name": "SMA20_vs_SMA50",
-      "importance": 0.08372127307815759
+      "importance": 0.0819340819138631
     },
     {
       "name": "BB_width",
-      "importance": 0.06504317454634924
+      "importance": 0.06838196584585637
     }
   ],
   "model_type": "RandomForest_REAL_LEARNING",
