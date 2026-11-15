@@ -1,31 +1,31 @@
 {
   "horizon": "1g",
   "horizon_days": 5,
-  "train_date": "2026-11-08 05:15",
+  "train_date": "2026-11-15 05:27",
   "train_size": 559,
   "test_size": 140,
-  "accuracy": 0.4,
+  "accuracy": 0.40714285714285714,
   "feature_count": 17,
   "top_features": [
     {
       "name": "ATR",
-      "importance": 0.10701965012926021
+      "importance": 0.1065294755240057
     },
     {
       "name": "SMA50",
-      "importance": 0.0832159561234742
+      "importance": 0.08621830527486442
     },
     {
       "name": "BB_width",
-      "importance": 0.0699507882193276
+      "importance": 0.06588014150583892
     },
     {
       "name": "SMA20",
-      "importance": 0.0689024922191394
+      "importance": 0.06491785413111141
     },
     {
       "name": "Price_vs_SMA50",
-      "importance": 0.06421629379781818
+      "importance": 0.06474551624031867
     }
   ],
   "model_type": "RandomForest_REAL_LEARNING",
