@@ -1,7 +1,7 @@
 {
   "horizon": "1g",
   "horizon_days": 5,
-  "train_date": "2026-11-22 05:50",
+  "train_date": "2026-11-22 06:01",
   "train_size": 559,
   "test_size": 140,
   "accuracy": 0.38571428571428573,
@@ -9,7 +9,7 @@
   "top_features": [
     {
       "name": "ATR",
-      "importance": 0.10551769379740623
+      "importance": 0.1055272357210714
     },
     {
       "name": "SMA50",

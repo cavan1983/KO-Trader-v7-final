@@ -1,7 +1,7 @@
 {
   "horizon": "3g",
   "horizon_days": 15,
-  "train_date": "2026-11-22 05:50",
+  "train_date": "2026-11-22 06:01",
   "train_size": 551,
   "test_size": 138,
   "accuracy": 0.2826086956521739,
